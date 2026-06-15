@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 from pathlib import Path
 from datetime import datetime
-from config import settings
+from .config import settings
 from collectors import scraper
 from app.utils import statistics
 
