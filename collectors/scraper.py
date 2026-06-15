@@ -15,6 +15,7 @@ do Playwright, que já realizou o login em app.dacopa.com.
 
 import pandas as pd
 from datetime import datetime
+from pathlib import Path
 from playwright.sync_api import sync_playwright, Page
 from config import settings
 from collectors import session_manager
@@ -430,6 +431,10 @@ def save_palpites_snapshot(palpites: list[dict], coleta_id: str) -> bool:
 
         df_novos = pd.DataFrame(palpites)
         df_final = pd.concat([df_atual, df_novos], ignore_index=True)
+        
+        # Deduplica os palpites baseado no participante e na partida, mantendo sempre o mais recente
+        df_final = df_final.drop_duplicates(subset=["participante", "mandante", "visitante"], keep="last")
+        
         df_final.to_excel(settings.PALPITES_EXCEL, index=False)
         logger.info(f"Palpites salvos em palpites.xlsx. Total: {len(df_novos)} registros (coleta {coleta_id}).")
         return True
@@ -437,6 +442,112 @@ def save_palpites_snapshot(palpites: list[dict], coleta_id: str) -> bool:
     except Exception as e:
         logger.error(f"Erro ao salvar palpites.xlsx: {e}")
         return False
+
+def rebuild_historical_snapshots(api_data: dict, palpites_file: Path):
+    """
+    Recalcula o ranking dia a dia com base nos palpites salvos e nas partidas finalizadas da API,
+    reescrevendo o historico.xlsx completo.
+    """
+    try:
+        if not palpites_file.exists():
+            return
+
+        df_palpites = pd.read_excel(palpites_file)
+        if df_palpites.empty:
+            return
+
+        finished = api_data.get("finishedMatches", [])
+        if not finished:
+            return
+
+        # Pega as datas de cada partida
+        matches_dates = {}
+        for m in finished:
+            match_id = f"{m['homeTeamName'].lower()[:4]}x{m['awayTeamName'].lower()[:4]}"
+            # Pega o dia (ex: 2026-06-11)
+            date_str = m['scheduledAt'].split("T")[0]
+            matches_dates[match_id] = date_str
+
+        # Cria uma coluna "data_partida" no palpites (precisamos comparar substring porque palpites tem sufixo _coletaid)
+        def get_date(partida_id):
+            base_id = partida_id.split('_')[0]
+            for m_id, d in matches_dates.items():
+                if base_id == m_id:
+                    return d
+            return "2099-12-31"
+
+        df_palpites["data_partida"] = df_palpites["partida_id"].apply(get_date)
+        
+        # Filtra apenas palpites de partidas finalizadas (que ganharam data)
+        df_validos = df_palpites[df_palpites["data_partida"] != "2099-12-31"]
+        if df_validos.empty:
+            return
+
+        # Dias de jogos em ordem cronológica
+        dias_jogos = sorted(df_validos["data_partida"].unique())
+        
+        PONTOS_MAP = {
+            'Placar exato': 25,
+            'Gols do vencedor': 18,
+            'Saldo de gols': 15,
+            'Gols do perdedor': 12,
+            'Vencedor certo': 10,
+            'Sem pontos': 0
+        }
+
+        historico_rows = []
+        
+        for idx_dia, dia_atual in enumerate(dias_jogos):
+            # Para este dia, consideramos todas as partidas até este dia
+            df_ate_hoje = df_validos[df_validos["data_partida"] <= dia_atual].copy()
+            df_ate_hoje["pontos_calculados"] = df_ate_hoje["categoria"].map(PONTOS_MAP).fillna(0)
+            
+            # Agrupa por participante
+            grouped = df_ate_hoje.groupby(["participante", "arroba"])
+            
+            pontos = grouped["pontos_calculados"].sum()
+            cats = df_ate_hoje.groupby(["participante", "arroba", "categoria"]).size().unstack(fill_value=0)
+            
+            # Para cada participante, monta um registro
+            registros_dia = []
+            for (part, arr) in pontos.index:
+                pts = int(pontos.loc[(part, arr)])
+                row_cats = cats.loc[(part, arr)] if (part, arr) in cats.index else pd.Series()
+                pe = int(row_cats.get("Placar exato", 0))
+                gv = int(row_cats.get("Gols do vencedor", 0))
+                sg = int(row_cats.get("Saldo de gols", 0))
+                gp = int(row_cats.get("Gols do perdedor", 0))
+                vc = int(row_cats.get("Vencedor certo", 0))
+                sp = int(row_cats.get("Sem pontos", 0))
+                
+                registros_dia.append({
+                    "data_hora": f"{dia_atual} 23:59:59",
+                    "coleta_id": dia_atual.replace("-", "") + "235959",
+                    "participante": part,
+                    "arroba": arr,
+                    "pontos": pts,
+                    "placar_exato": pe,
+                    "gols_vencedor": gv,
+                    "saldo_gols": sg,
+                    "gols_perdedor": gp,
+                    "vencedor_certo": vc,
+                    "sem_pontos": sp
+                })
+            
+            df_dia = pd.DataFrame(registros_dia)
+            # Ordena: pontos desc, placar_exato desc, participante asc
+            df_dia = df_dia.sort_values(by=["pontos", "placar_exato", "participante"], ascending=[False, False, True]).reset_index(drop=True)
+            df_dia["posicao"] = df_dia.index + 1
+            
+            historico_rows.extend(df_dia.to_dict('records'))
+            
+        df_historico_reconstruido = pd.DataFrame(historico_rows)
+        # Substitui o histórico atual
+        df_historico_reconstruido.to_excel(settings.HISTORICO_EXCEL, index=False)
+        logger.info(f"Histórico retroativo reconstruído para {len(dias_jogos)} dias de jogos.")
+
+    except Exception as e:
+        logger.error(f"Erro ao reconstruir histórico: {e}", exc_info=True)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -495,6 +606,10 @@ def run_coleta_completa() -> bool:
                 todos_palpites.extend(palpites_membro)
 
             save_palpites_snapshot(todos_palpites, coleta_id)
+
+            # 6. Reconstrução do histórico retroativo dia-a-dia
+            logger.info("Reconstruindo histórico retroativo dia a dia...")
+            rebuild_historical_snapshots(api_data, settings.PALPITES_EXCEL)
 
             context.close()
             logger.info("─" * 60)
