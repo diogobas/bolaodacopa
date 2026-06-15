@@ -1,0 +1,26 @@
+{
+  "login": {
+    "url_path": "/signin",
+    "email_input": "input#email",
+    "password_input": "input#password",
+    "submit_button": "button[type='submit']",
+    "logged_in_indicator": "a[href='/settings'], a[href='/dashboard'], a[href='/groups']"
+  },
+  "grupo": {
+    "url_template": "https://app.dacopa.com/groups/{group_id}/leaderboard",
+    "members_url_template": "https://app.dacopa.com/groups/{group_id}/members",
+    "tabela_ranking_linhas": "div.grid-cols-\\[32px_1fr_64px\\].items-center:not(.tracking-wide)",
+    "nome_participante": "p.text-foreground",
+    "arroba_participante": "",
+    "pontuacao_participante": "span.text-right",
+    "posicao_participante": "span.font-bold",
+    "membros_lista_itens": "div.space-y-3 > div.flex.items-center",
+    "membro_nome": "span.font-medium",
+    "membro_arroba": "p.text-foreground-secondary",
+    "member_detail_url_template": "https://app.dacopa.com/groups/{group_id}/leaderboard/{username}",
+    "member_stats_cards": "div.grid.grid-cols-3.gap-2 > div",
+    "member_stats_card_points": "span",
+    "member_stats_card_label": "p:nth-of-type(1)",
+    "member_stats_card_count": "p:nth-of-type(2)"
+  }
+}
