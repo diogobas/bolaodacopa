@@ -237,10 +237,9 @@ admin_key = admin_expander.text_input("Chave do Admin", type="password")
 
 is_admin_authenticated = (admin_key == "vaibrasa")
 
-# Oculta a Visão Geral a princípio. O admin autenticado pode visualizá-la.
+# Oculta a Visão Geral. O Ranking Atual é o inicial.
 navigation_options = ["📊 Ranking Atual", "👤 Evolução Individual", "⚡ Estatísticas", "💎 Pérolas"]
 if is_admin_authenticated:
-    navigation_options.insert(0, "🏆 Visão Geral")
     navigation_options.append("⚙️ Administração")
 
 aba_selecionada = st.sidebar.radio("Selecione a Tela", navigation_options, label_visibility="collapsed")
@@ -250,77 +249,7 @@ st.sidebar.markdown(f"**Conexão DaCopa:** `Online ✅` ")
 if df_historico.empty:
     st.sidebar.warning("Banco de dados local vazio. Faça uma coleta no Painel Admin.")
 
-# --- RENDERIZAÇÃO DAS TELAS ---
-
-if aba_selecionada == "🏆 Visão Geral":
-    st.markdown("<div class='section-title'>Métricas Gerais do Bolão</div>", unsafe_allow_html=True)
-    
-    if df_historico.empty:
-        st.info("Nenhum snapshot de histórico cadastrado ainda. Use o Painel de Administração para atualizar.")
-    else:
-        # Extrai métricas
-        ultimo_coleta_id = df_historico["coleta_id"].iloc[-1]
-        df_ultimo_snapshot = df_historico[df_historico["coleta_id"] == ultimo_coleta_id]
-        
-        # 1. Líder Atual
-        lider_row = df_ultimo_snapshot.sort_values(by="posicao").iloc[0]
-        lider = f"{lider_row['participante']} ({lider_row['pontos']} pts)"
-        
-        # 2. Total de Participantes
-        total_participantes = len(df_membros) if not df_membros.empty else df_ultimo_snapshot["arroba"].nunique()
-        
-        # 3. Última Atualização
-        ultima_atualizacao = df_ultimo_snapshot["data_hora"].iloc[0]
-        
-        # 4. Total de Coletas
-        total_coletas = df_historico["coleta_id"].nunique()
-        
-        # Renderização dos Cards com espaçamento otimizado
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.markdown(f"""
-            <div class="metric-card podium-1st">
-                <div class="metric-label">🥇 Líder Atual</div>
-                <div class="metric-value">{lider}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        with col2:
-            st.markdown(f"""
-            <div class="metric-card" style="border-left-color: #1e3a8a;">
-                <div class="metric-label">👥 Participantes</div>
-                <div class="metric-value">{total_participantes}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        with col3:
-            st.markdown(f"""
-            <div class="metric-card" style="border-left-color: #94a3b8;">
-                <div class="metric-label">🕒 Última Atualização</div>
-                <div class="metric-value" style="font-size: 1.15rem; font-weight: 700; padding-top: 3px;">{ultima_atualizacao}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        with col4:
-            st.markdown(f"""
-            <div class="metric-card" style="border-left-color: #64748b;">
-                <div class="metric-label">📊 Total de Coletas</div>
-                <div class="metric-value">{total_coletas}</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        # Ilustração Decorativa da Copa do Mundo
-        st.markdown("""
-        <div style="text-align: center; color: #64748b; font-size: 0.9rem; border-top: 1px dashed #cbd5e1; padding-top: 15px; margin-top: 15px;">
-            ⚽ Rumo ao Hexa! Acompanhe a tabela e a evolução dos palpites a cada rodada.
-        </div>
-        """, unsafe_allow_html=True)
-
-
-elif aba_selecionada == "📊 Ranking Atual":
+if aba_selecionada == "📊 Ranking Atual":
     st.markdown("<div class='section-title'>Classificação Geral da Copa</div>", unsafe_allow_html=True)
     
     if df_historico.empty:
