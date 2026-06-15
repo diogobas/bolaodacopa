@@ -1,9 +1,15 @@
+import sys
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT_DIR))
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 from pathlib import Path
 from datetime import datetime
-from .config import settings
+from config import settings
 from collectors import scraper
 from app.utils import statistics
 
