@@ -63,6 +63,15 @@ st.set_page_config(page_title="🏆 Bolão é Nóis na Copa", page_icon="⚽", l
 # Estilização CSS Avançada (Compacta, elegante e integrada)
 st.markdown("""
 <style>
+    /* Força o cabeçalho superior (onde fica o menu hambúrguer) a ter um fundo escuro */
+    header[data-testid="stHeader"] {
+    background-color: #0f172a !important; /* Mesma cor base do seu Dark Slate */
+}
+
+    /* Força os ícones e botões dentro do cabeçalho a ficarem brancos para dar contraste */
+    header[data-testid="stHeader"] * {
+    color: #f8fafc !important;
+}
     /* Google Fonts */
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
     
