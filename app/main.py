@@ -150,6 +150,14 @@ st.markdown("""
             padding-right: 3% !important;
             max-width: 100% !important;
         }
+
+        /* Remove a barra de ferramentas do Plotly no mobile para evitar ocultar a legenda */
+        /* Afeta somente telas <= 768px; não altera desktop */
+        .modebar, .modebar-container, .modebar-btn, .plotly .modebar {
+            display: none !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+        }
     }
 
     /* ========================================== */
