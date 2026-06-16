@@ -111,51 +111,38 @@ st.markdown("""
     /* 3. COMPORTAMENTO MOBILE (Celulares)        */
     /* ========================================== */
     @media (max-width: 768px) {
-        /* A. Barra superior azul escuro */
+        /* A. Configura a barra superior (Header) para azul escuro sólido */
         header[data-testid="stHeader"] {
             background-color: #0f172a !important; 
             z-index: 999998 !important; 
         }
 
-        /* B. Pinta os 3 pontos superiores direitos de branco */
-        header[data-testid="stHeader"] * {
-            fill: #ffffff !important;
-            stroke: #ffffff !important;
-            color: #ffffff !important;
+        /* B. Oculta sumariamente o ícone nativo ">>" (vetor SVG original) */
+        [data-testid="collapsedControl"] svg,
+        button[kind="header"] svg {
+            display: none !important;
         }
 
-        /* C. ALVO ISOLADO: Botão ">>" que flutua fora do header */
-        /* Transforma em Flexbox para alinhar ícone e texto lado a lado */
-        [data-testid="collapsedControl"] {
+        /* C. Injeta o Ícone de Menu Hambúrguer (☰) via tabela Unicode nativa */
+        [data-testid="collapsedControl"]::before,
+        button[kind="header"]::before {
+            content: "\\2630" !important; /* Código Hexadecimal das 3 linhas */
+            color: #ffffff !important; /* Garante o alto contraste (Branco) */
+            font-size: 1.8rem !important; /* Amplia o ícone para facilidade de toque */
+            font-weight: bold !important;
             display: flex !important;
             align-items: center !important;
-            justify-content: flex-start !important;
-            z-index: 999999 !important; /* Prioridade máxima na tela */
-            width: auto !important; /* Permite expansão lateral */
-            padding: 5px 15px !important;
-            background-color: transparent !important;
-            margin-top: 2px !important;
+            justify-content: center !important;
+            width: 40px !important;
+            height: 40px !important;
         }
 
-        /* D. Força o ícone ">>" a ficar BRANCO absoluto */
-        [data-testid="collapsedControl"] svg {
-            fill: #ffffff !important;
-            stroke: #ffffff !important;
+        /* D. Pinta os 3 pontos superiores direitos de branco (Módulo de Configuração) */
+        header[data-testid="stHeader"] * {
             color: #ffffff !important;
         }
 
-        /* E. Injeta a palavra "Menu" perfeitamente ao lado do ">>" */
-        [data-testid="collapsedControl"]::after {
-            content: "Menu" !important;
-            color: #ffffff !important;
-            font-size: 1.15rem !important;
-            font-weight: 700 !important;
-            margin-left: 8px !important; /* Distância entre o >> e a palavra */
-            letter-spacing: 0.5px !important;
-            display: block !important;
-        }
-
-        /* F. Proteção do banner da Copa contra a barra superior */
+        /* E. Escudo de Proteção Geométrica para o Banner Principal da Copa */
         .block-container {
             padding-top: 4.5rem !important; 
             padding-bottom: 1rem !important;
