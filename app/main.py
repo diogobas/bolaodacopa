@@ -60,25 +60,23 @@ from app.utils import statistics
 # Configuração da página Streamlit (layout wide e título premium)
 st.set_page_config(page_title="🏆 Bolão é Nóis na Copa", page_icon="⚽", layout="wide")
 
-# Estilização CSS Avançada (Responsiva e Limpa)
+# Estilização CSS Avançada (Responsiva, Limpa e Híbrida)
 st.markdown("""
 <style>
-    /* Google Fonts */
+    /* ========================================== */
+    /* CONFIGURAÇÕES GLOBAIS E TIPOGRAFIA         */
+    /* ========================================== */
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
     
-    /* Configuração global de fontes */
     html, body, [class*="css"] {
         font-family: 'Outfit', sans-serif;
     }
     
-    /* Tom de fundo refinado */
     .stApp {
         background-color: #f8fafc !important; 
     }
 
-    /* ========================================== */
-    /* 1. LIMPEZA DA INTERFACE (FORK, GITHUB, ETC)*/
-    /* ========================================== */
+    /* Oculta os botões de ferramentas da nuvem (Fork, Share, etc) */
     [data-testid="stToolbar"],
     [data-testid="stStatusWidget"],
     .viewerBadge_container__1QSob,
@@ -89,15 +87,15 @@ st.markdown("""
     }
 
     /* ========================================== */
-    /* 2. COMPORTAMENTO DESKTOP (Telas Maiores)   */
+    /* COMPORTAMENTO DESKTOP (Monitores e PCs)    */
     /* ========================================== */
     @media (min-width: 769px) {
-        /* Oculta o cabeçalho nativo, pois a barra lateral já está visível */
+        /* Oculta completamente o cabeçalho superior, pois o menu lateral já atende */
         header[data-testid="stHeader"] {
             display: none !important;
         }
         
-        /* Aplica margem segura para o banner da Copa não colar no topo do monitor */
+        /* Ajuste fino dos espaçamentos laterais e superiores para tela grande */
         .block-container {
             padding-top: 2.5rem !important; 
             padding-bottom: 1rem !important;
@@ -107,71 +105,71 @@ st.markdown("""
         }
     }
 
-  /* ========================================== */
-    /* 3. COMPORTAMENTO MOBILE (Celulares)        */
+    /* ========================================== */
+    /* COMPORTAMENTO MOBILE (Celulares)           */
     /* ========================================== */
     @media (max-width: 768px) {
-        /* Força a exibição do cabeçalho com fundo escuro */
+        /* 1. CORREÇÃO DA SOBREPOSIÇÃO: Trava o cabeçalho no topo com prioridade máxima */
         header[data-testid="stHeader"] {
-            display: block !important;
+            display: flex !important;
             visibility: visible !important;
-            background-color: #0f172a !important; 
-            z-index: 999999 !important; 
+            background-color: #0f172a !important; /* Cor idêntica à barra lateral */
+            z-index: 999999 !important; /* Supera qualquer outra camada visual */
             position: fixed !important;
             top: 0 !important;
             width: 100% !important;
+            border-bottom: 2px solid #334155 !important;
         }
 
-        /* Desce o conteúdo da página para o banner não ser coberto */
+        /* 2. LIBERAÇÃO DE ESPAÇO: Empurra o banner da Copa para baixo, evitando esmagamento */
         .block-container {
-            padding-top: 4.5rem !important; 
+            padding-top: 5rem !important; /* Margem vitalícia contra sobreposição */
             padding-bottom: 1rem !important;
             padding-left: 3% !important;
             padding-right: 3% !important;
             max-width: 100% !important;
         }
 
-        /* 1. SELETOR AGNÓSTICO: Captura qualquer botão dentro do cabeçalho */
-        /* Redimensiona o contêiner para comportar texto em vez de um ícone quadrado */
+        /* 3. VISIBILIDADE DO ÍCONE: Garante que o vetor nativo (>> ou sanduíche) apareça na cor branca */
+        header[data-testid="stHeader"] svg {
+            display: block !important;
+            fill: #ffffff !important;
+            color: #ffffff !important;
+            width: 24px !important;
+            height: 24px !important;
+        }
+
+        /* 4. EXPANSÃO DO BOTÃO: Transforma a área clicável em Flexbox para acomodar o texto ao lado do ícone */
         header[data-testid="stHeader"] button {
             display: flex !important;
             align-items: center !important;
-            justify-content: center !important;
-            width: auto !important;
+            justify-content: flex-start !important;
+            width: auto !important; /* Adapta-se ao conteúdo injetado */
             height: auto !important;
-            padding: 10px 20px !important;
+            padding: 8px 16px !important;
             background-color: transparent !important;
             border: none !important;
             margin-top: 5px !important;
         }
 
-        /* 2. Oculta sumariamente qualquer imagem/vetor SVG dentro deste botão */
-        header[data-testid="stHeader"] button svg {
-            display: none !important;
-        }
-
-        /* 3. Injeta a palavra 'Menu' usando o elemento ::after com alta prioridade geométrica */
+        /* 5. INJEÇÃO DIDÁTICA: Acopla a palavra 'Menu' imediatamente após o ícone vetorial */
         header[data-testid="stHeader"] button::after {
-            content: "Menu" !important;
+            content: " Menu" !important; /* Espaço inicial crítico para separar do ícone */
             color: #ffffff !important;
-            font-size: 1.25rem !important;
-            font-weight: 800 !important;
+            font-size: 1.15rem !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.5px !important;
+            margin-left: 8px !important;
+            display: inline-block !important;
             visibility: visible !important;
-            display: block !important;
-            letter-spacing: 1px !important;
         }
     }
 
     /* ========================================== */
-    /* ESTILIZAÇÃO GERAL DOS COMPONENTES          */
+    /* ESTILIZAÇÃO GERAL DOS COMPONENTES INTERNOS */
     /* ========================================== */
+    div[data-testid="stVerticalBlock"] { gap: 0.7rem !important; }
     
-    /* Reduz o vão entre elementos verticais */
-    div[data-testid="stVerticalBlock"] {
-        gap: 0.7rem !important;
-    }
-    
-    /* Cabeçalho da Copa do Mundo - Compacto e Premium */
     .header-container {
         background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 45%, #14532d 100%);
         padding: 16px 24px;
@@ -196,14 +194,8 @@ st.markdown("""
         color: #ffffff !important;
     }
     
-    .header-subtitle {
-        font-size: 0.9rem;
-        margin-top: 2px;
-        color: #eab308;
-        font-weight: 500;
-    }
+    .header-subtitle { font-size: 0.9rem; margin-top: 2px; color: #eab308; font-weight: 500; }
     
-    /* Barra lateral estilizada (Dark Slate) */
     section[data-testid="stSidebar"] {
         background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important;
         border-right: 1px solid #334155;
@@ -212,11 +204,8 @@ st.markdown("""
     section[data-testid="stSidebar"] .stMarkdown h2, 
     section[data-testid="stSidebar"] .stMarkdown h3,
     section[data-testid="stSidebar"] label,
-    section[data-testid="stSidebar"] p {
-        color: #f8fafc !important;
-    }
+    section[data-testid="stSidebar"] p { color: #f8fafc !important; }
     
-    /* Customização dos Cards de Métricas */
     .metric-card {
         background: #ffffff;
         padding: 12px 16px !important;
@@ -228,48 +217,16 @@ st.markdown("""
         transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
     
-    .metric-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
-    }
+    .metric-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08); }
+    .metric-label { font-size: 0.8rem; color: #64748b; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 2px; }
+    .metric-value { font-size: 1.35rem; font-weight: 800; color: #0f172a; }
     
-    .metric-label {
-        font-size: 0.8rem;
-        color: #64748b;
-        text-transform: uppercase;
-        font-weight: 700;
-        letter-spacing: 0.5px;
-        margin-bottom: 2px;
-    }
-    
-    .metric-value {
-        font-size: 1.35rem;
-        font-weight: 800;
-        color: #0f172a;
-    }
-    
-    /* Diferenciação de cores de pódio para os cards */
     .podium-1st { border-left-color: #eab308 !important; }
     .podium-2nd { border-left-color: #94a3b8 !important; }
     .podium-3rd { border-left-color: #b45309 !important; }
     
-    /* Customização de Títulos das Seções */
-    .section-title {
-        font-size: 1.25rem;
-        font-weight: 700;
-        color: #0f172a;
-        margin-top: 10px;
-        margin-bottom: 10px;
-        border-bottom: 2px solid #e2e8f0;
-        padding-bottom: 4px;
-    }
-    
-    /* Ajustes das Tabelas e Blocos de Código */
-    div[data-testid="stCodeBlock"],
-    div[data-testid="stDataFrame"] {
-        border-radius: 10px;
-        border: 1px solid #e2e8f0;
-    }
+    .section-title { font-size: 1.25rem; font-weight: 700; color: #0f172a; margin-top: 10px; margin-bottom: 10px; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px; }
+    div[data-testid="stCodeBlock"], div[data-testid="stDataFrame"] { border-radius: 10px; border: 1px solid #e2e8f0; }
 </style>
 """, unsafe_allow_html=True)
 
