@@ -117,24 +117,35 @@ st.markdown("""
             z-index: 999999 !important; 
         }
 
-        /* B. Pinta o ícone de hambúrguer nativo de branco */
+        /* B. Força TODOS os vetores (SVGs) do cabeçalho a ficarem BRANCOS */
+        /* Cobre as propriedades de preenchimento, contorno e cor da fonte */
         header[data-testid="stHeader"] svg {
             fill: #ffffff !important;
+            stroke: #ffffff !important;
             color: #ffffff !important;
         }
 
-        /* C. Injeta a palavra "Menu" ao lado do ícone usando o botão de colapso */
-        [data-testid="collapsedControl"]::after,
-        button[kind="header"]::after {
-            content: " Menu" !important;
+        /* C. Altera a estrutura do botão nativo para aceitar texto ao lado do ícone */
+        /* O Flexbox alinha os elementos e o width: auto permite que o botão cresça */
+        [data-testid="collapsedControl"] {
+            display: flex !important;
+            align-items: center !important;
+            flex-direction: row !important;
+            width: auto !important;
+            padding-right: 15px !important;
+        }
+
+        /* D. Injeta a palavra "Menu" em texto branco e legível ao lado do ícone */
+        [data-testid="collapsedControl"]::after {
+            content: "Menu" !important;
             color: #ffffff !important;
             font-size: 1.15rem !important;
             font-weight: 700 !important;
-            display: inline-block !important;
-            margin-left: 5px !important;
+            margin-left: 8px !important; /* Espaço entre o ícone >> e a palavra */
+            letter-spacing: 0.5px !important;
         }
 
-        /* D. Cria um escudo de espaço para o banner da copa não ser esmagado */
+        /* E. Cria um escudo de espaço para o banner da copa não ser esmagado */
         .block-container {
             padding-top: 4.5rem !important; 
             padding-bottom: 1rem !important;
