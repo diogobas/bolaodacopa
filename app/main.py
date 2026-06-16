@@ -60,60 +60,99 @@ from app.utils import statistics
 # Configuração da página Streamlit (layout wide e título premium)
 st.set_page_config(page_title="🏆 Bolão é Nóis na Copa", page_icon="⚽", layout="wide")
 
-# Estilização CSS Avançada (Compacta, elegante e integrada)
+# Estilização CSS Avançada (Responsiva e Limpa)
 st.markdown("""
 <style>
     /* Google Fonts */
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
     
-    /* Configuração global de fontes e reset de margens do Streamlit */
+    /* Configuração global de fontes */
     html, body, [class*="css"] {
         font-family: 'Outfit', sans-serif;
-    }
-
-    /* ========================================== */
-    /* CORREÇÃO DA NAVEGAÇÃO MOBILE (MENU SANDUÍCHE) */
-    /* ========================================== */
-    
-    /* 1. FORÇA A EXIBIÇÃO E O CONTRASTE DO CABEÇALHO */
-    header[data-testid="stHeader"] {
-        display: block !important;
-        visibility: visible !important;
-        background-color: #0f172a !important; 
-        z-index: 999999 !important; 
-    }
-
-    /* 2. FORÇA A COR DO BOTÃO (MENU) PARA BRANCO */
-    header[data-testid="stHeader"] * {
-        color: #ffffff !important; 
-        fill: #ffffff !important; 
-    }
-
-    /* 3. MEDIA QUERY: AJUSTE DE ESPAÇO PARA O CELULAR */
-    @media (max-width: 768px) {
-        .block-container {
-            padding-top: 4rem !important; 
-        }
-    }
-    /* ========================================== */
-    
-    /* Redução drástica dos espaçamentos em branco padrão do Streamlit no Desktop */
-    .block-container {
-        padding-top: 0.8rem; /* Sem o !important para não conflitar com o mobile acima */
-        padding-bottom: 1rem !important;
-        padding-left: 2.5% !important;
-        padding-right: 2.5% !important;
-        max-width: 96% !important;
-    }
-    
-    /* Reduz o vão entre elementos verticais */
-    div[data-testid="stVerticalBlock"] {
-        gap: 0.7rem !important;
     }
     
     /* Tom de fundo refinado */
     .stApp {
         background-color: #f8fafc !important; 
+    }
+
+    /* ========================================== */
+    /* 1. LIMPEZA DA INTERFACE (FORK, GITHUB, ETC)*/
+    /* ========================================== */
+    [data-testid="stToolbar"],
+    [data-testid="stStatusWidget"],
+    .viewerBadge_container__1QSob,
+    .viewerBadge_link__1S137,
+    #viewerBadge_container__1QSob {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    /* ========================================== */
+    /* 2. COMPORTAMENTO DESKTOP (Telas Maiores)   */
+    /* ========================================== */
+    @media (min-width: 769px) {
+        /* Oculta o cabeçalho nativo, pois a barra lateral já está visível */
+        header[data-testid="stHeader"] {
+            display: none !important;
+        }
+        
+        /* Aplica margem segura para o banner da Copa não colar no topo do monitor */
+        .block-container {
+            padding-top: 2.5rem !important; 
+            padding-bottom: 1rem !important;
+            padding-left: 2.5% !important;
+            padding-right: 2.5% !important;
+            max-width: 96% !important;
+        }
+    }
+
+    /* ========================================== */
+    /* 3. COMPORTAMENTO MOBILE (Celulares)        */
+    /* ========================================== */
+    @media (max-width: 768px) {
+        /* Força a exibição do cabeçalho como uma barra de menu escura */
+        header[data-testid="stHeader"] {
+            display: block !important;
+            visibility: visible !important;
+            background-color: #0f172a !important; 
+            z-index: 999999 !important; 
+        }
+
+        /* Desce o conteúdo da página inteira para escapar do menu fixo */
+        .block-container {
+            padding-top: 5rem !important; 
+            padding-bottom: 1rem !important;
+            padding-left: 3% !important;
+            padding-right: 3% !important;
+            max-width: 100% !important;
+        }
+
+        /* Oculta o ícone nativo feio (>>) de abrir o menu */
+        [data-testid="collapsedControl"] svg,
+        button[kind="headerNoPadding"] svg {
+            display: none !important;
+        }
+
+        /* Cria o botão com texto "Menu" legível e ícone sanduíche */
+        [data-testid="collapsedControl"]::after,
+        button[kind="headerNoPadding"]::after {
+            content: "☰ Menu";
+            color: #ffffff !important;
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-left: 10px;
+            letter-spacing: 0.5px;
+        }
+    }
+
+    /* ========================================== */
+    /* ESTILIZAÇÃO GERAL DOS COMPONENTES          */
+    /* ========================================== */
+    
+    /* Reduz o vão entre elementos verticais */
+    div[data-testid="stVerticalBlock"] {
+        gap: 0.7rem !important;
     }
     
     /* Cabeçalho da Copa do Mundo - Compacto e Premium */
@@ -130,9 +169,7 @@ st.markdown("""
         border-bottom: 3px solid #eab308;
     }
     
-    .header-title-box {
-        text-align: left;
-    }
+    .header-title-box { text-align: left; }
     
     .header-title {
         font-size: 1.8rem !important;
@@ -195,6 +232,11 @@ st.markdown("""
         color: #0f172a;
     }
     
+    /* Diferenciação de cores de pódio para os cards */
+    .podium-1st { border-left-color: #eab308 !important; }
+    .podium-2nd { border-left-color: #94a3b8 !important; }
+    .podium-3rd { border-left-color: #b45309 !important; }
+    
     /* Customização de Títulos das Seções */
     .section-title {
         font-size: 1.25rem;
@@ -206,7 +248,8 @@ st.markdown("""
         padding-bottom: 4px;
     }
     
-    /* Ajustes das Tabelas */
+    /* Ajustes das Tabelas e Blocos de Código */
+    div[data-testid="stCodeBlock"],
     div[data-testid="stDataFrame"] {
         border-radius: 10px;
         border: 1px solid #e2e8f0;
