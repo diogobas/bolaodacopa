@@ -107,59 +107,58 @@ st.markdown("""
         }
     }
 
-    /* ========================================== */
-    /* 3. COMPORTAMENTO MOBILE (Celulares)        */
-    /* ========================================== */
   /* ========================================== */
     /* 3. COMPORTAMENTO MOBILE (Celulares)        */
     /* ========================================== */
     @media (max-width: 768px) {
-        /* Força a exibição do cabeçalho como uma barra de menu escura premium */
+        /* Força a exibição do cabeçalho com fundo escuro */
         header[data-testid="stHeader"] {
             display: block !important;
             visibility: visible !important;
             background-color: #0f172a !important; 
             z-index: 999999 !important; 
+            position: fixed !important;
+            top: 0 !important;
+            width: 100% !important;
         }
 
-        /* Desce o conteúdo da página inteira para escapar do menu fixo, garantindo a leitura do banner */
+        /* Desce o conteúdo da página para o banner não ser coberto */
         .block-container {
-            padding-top: 5rem !important; 
+            padding-top: 4.5rem !important; 
             padding-bottom: 1rem !important;
             padding-left: 3% !important;
             padding-right: 3% !important;
             max-width: 100% !important;
         }
 
-        /* 1. Oculta e desativa o ícone nativo vetorial (>>) do Streamlit */
-        [data-testid="collapsedControl"] svg,
-        button[kind="headerNoPadding"] svg {
-            display: none !important;
-        }
-
-        /* 2. Reconstrói a área física do botão para evitar o colapso de layout (0x0 pixels) */
-        [data-testid="collapsedControl"],
-        button[kind="headerNoPadding"] {
+        /* 1. SELETOR AGNÓSTICO: Captura qualquer botão dentro do cabeçalho */
+        /* Redimensiona o contêiner para comportar texto em vez de um ícone quadrado */
+        header[data-testid="stHeader"] button {
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
             width: auto !important;
-            height: 100% !important;
-            padding: 5px 15px !important;
+            height: auto !important;
+            padding: 10px 20px !important;
             background-color: transparent !important;
             border: none !important;
+            margin-top: 5px !important;
         }
 
-        /* 3. Injeta a tipografia e o ícone de hambúrguer de forma explícita na tela */
-        [data-testid="collapsedControl"]::before,
-        button[kind="headerNoPadding"]::before {
-            content: "☰ Menu" !important;
+        /* 2. Oculta sumariamente qualquer imagem/vetor SVG dentro deste botão */
+        header[data-testid="stHeader"] button svg {
+            display: none !important;
+        }
+
+        /* 3. Injeta a palavra 'Menu' usando o elemento ::after com alta prioridade geométrica */
+        header[data-testid="stHeader"] button::after {
+            content: "Menu" !important;
             color: #ffffff !important;
-            font-size: 1.15rem !important;
-            font-weight: 700 !important;
-            letter-spacing: 0.5px !important;
-            display: block !important;
+            font-size: 1.25rem !important;
+            font-weight: 800 !important;
             visibility: visible !important;
+            display: block !important;
+            letter-spacing: 1px !important;
         }
     }
 
