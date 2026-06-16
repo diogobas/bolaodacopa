@@ -110,8 +110,11 @@ st.markdown("""
     /* ========================================== */
     /* 3. COMPORTAMENTO MOBILE (Celulares)        */
     /* ========================================== */
+  /* ========================================== */
+    /* 3. COMPORTAMENTO MOBILE (Celulares)        */
+    /* ========================================== */
     @media (max-width: 768px) {
-        /* Força a exibição do cabeçalho como uma barra de menu escura */
+        /* Força a exibição do cabeçalho como uma barra de menu escura premium */
         header[data-testid="stHeader"] {
             display: block !important;
             visibility: visible !important;
@@ -119,7 +122,7 @@ st.markdown("""
             z-index: 999999 !important; 
         }
 
-        /* Desce o conteúdo da página inteira para escapar do menu fixo */
+        /* Desce o conteúdo da página inteira para escapar do menu fixo, garantindo a leitura do banner */
         .block-container {
             padding-top: 5rem !important; 
             padding-bottom: 1rem !important;
@@ -128,21 +131,35 @@ st.markdown("""
             max-width: 100% !important;
         }
 
-        /* Oculta o ícone nativo feio (>>) de abrir o menu */
+        /* 1. Oculta e desativa o ícone nativo vetorial (>>) do Streamlit */
         [data-testid="collapsedControl"] svg,
         button[kind="headerNoPadding"] svg {
             display: none !important;
         }
 
-        /* Cria o botão com texto "Menu" legível e ícone sanduíche */
-        [data-testid="collapsedControl"]::after,
-        button[kind="headerNoPadding"]::after {
-            content: "☰ Menu";
+        /* 2. Reconstrói a área física do botão para evitar o colapso de layout (0x0 pixels) */
+        [data-testid="collapsedControl"],
+        button[kind="headerNoPadding"] {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: auto !important;
+            height: 100% !important;
+            padding: 5px 15px !important;
+            background-color: transparent !important;
+            border: none !important;
+        }
+
+        /* 3. Injeta a tipografia e o ícone de hambúrguer de forma explícita na tela */
+        [data-testid="collapsedControl"]::before,
+        button[kind="headerNoPadding"]::before {
+            content: "☰ Menu" !important;
             color: #ffffff !important;
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-left: 10px;
-            letter-spacing: 0.5px;
+            font-size: 1.15rem !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.5px !important;
+            display: block !important;
+            visibility: visible !important;
         }
     }
 
