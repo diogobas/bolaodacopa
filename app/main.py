@@ -1,4 +1,21 @@
 import sys
+import os
+
+# 1. Captura o caminho absoluto do diretório onde main.py está localizado (pasta 'app')
+caminho_atual = os.path.dirname(os.path.abspath(__file__))
+
+# 2. Navega um nível para cima para alcançar a raiz do projeto ('bolaodacopa')
+caminho_raiz = os.path.abspath(os.path.join(caminho_atual, '..'))
+
+# 3. Adiciona a raiz ao path do sistema caso ainda não esteja lá
+if caminho_raiz not in sys.path:
+    sys.path.append(caminho_raiz)
+
+# 4. Agora as importações locais funcionarão normalmente
+from config import settings
+import streamlit as st
+
+import sys
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
