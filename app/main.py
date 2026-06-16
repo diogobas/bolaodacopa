@@ -63,15 +63,29 @@ st.set_page_config(page_title="🏆 Bolão é Nóis na Copa", page_icon="⚽", l
 # Estilização CSS Avançada (Compacta, elegante e integrada)
 st.markdown("""
 <style>
-    /* Força o cabeçalho superior (onde fica o menu hambúrguer) a ter um fundo escuro */
+    /* 1. FORÇA A EXIBIÇÃO E O CONTRASTE DO CABEÇALHO */
+    /* O seletor atinge o elemento raiz do header do Streamlit */
     header[data-testid="stHeader"] {
-    background-color: #0f172a !important; /* Mesma cor base do seu Dark Slate */
-}
+    display: block !important;
+    visibility: visible !important;
+    background-color: #0f172a !important; /* Azul escuro (Dark Slate) para combinar com seu layout */
+    z-index: 999999 !important; /* Força o menu a ficar por cima de qualquer banner ou tabela */
+    }
 
-    /* Força os ícones e botões dentro do cabeçalho a ficarem brancos para dar contraste */
+    /* 2. FORÇA A COR DO BOTÃO (MENU SANDUÍCHE) PARA BRANCO */
     header[data-testid="stHeader"] * {
-    color: #f8fafc !important;
-}
+    color: #ffffff !important; 
+    fill: #ffffff !important; /* Garante que elementos vetoriais SVG também fiquem brancos */
+    }
+
+    /* 3. MEDIA QUERY: AJUSTE EXCLUSIVO PARA DISPOSITIVOS MÓVEIS */
+    /* A regra abaixo só é ativada em telas com largura máxima de 768px (Celulares) */
+    @media (max-width: 768px) {
+    /* Devolve o espaço no topo da tela para que o header não cubra o seu banner da Copa */
+    .block-container {
+        padding-top: 4rem !important; 
+        }
+    }
     /* Google Fonts */
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
     
