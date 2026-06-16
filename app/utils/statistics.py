@@ -214,22 +214,23 @@ def calculate_individual_statistics(df_historico: pd.DataFrame, arroba_participa
     return ind_stats
 
 
-def calculate_perolas(df_palpites: pd.DataFrame) -> dict:
+def calculate_perolas(df_palpites: pd.DataFrame, df_historico: pd.DataFrame = None) -> dict:
     """
-    Calcula as estatísticas divertidas "Pérolas do Bolão" a partir dos palpites individuais.
+    Calcula as estatísticas divertidas "Pérolas do Bolão" a partir dos palpites individuais e histórico.
 
     Métricas:
-    - ousado:     Participante que mais apostou palpites únicos (só ele apostou aquele placar naquele jogo).
-    - maria:      Participante que mais vezes coincidiu com o palpite majoritário do grupo.
-                  Retorna também a lista dos placares em que foi "Maria".
-    - retranqueiro: Participante que apostou menos gols no total (soma de todos os palpites).
-    - zicado:     Participante que mais vezes errou por exatamente 1 gol no somatório do placar.
+    - ousado:     Top 3 participantes que mais apostaram palpites únicos (só ele apostou aquele placar naquele jogo).
+    - maria:      Top 3 participantes que mais vezes coincidiram com o palpite majoritário do grupo.
+    - retranqueiro: Top 3 participantes que apostaram menos gols no total (soma de todos os palpites).
+    - zicado:     Top 3 participantes que mais vezes erraram por exatamente 1 gol no somatório do placar.
+    - golfinho:   Top 3 participantes que mais alternaram posições na classificação geral ao longo do tempo.
     """
     resultado = {
-        "ousado":       {"participante": "N/A", "arroba": "N/A", "valor": 0},
-        "maria":        {"participante": "N/A", "arroba": "N/A", "valor": 0, "placares": []},
-        "retranqueiro": {"participante": "N/A", "arroba": "N/A", "valor": 0},
-        "zicado":       {"participante": "N/A", "arroba": "N/A", "valor": 0},
+        "ousado": [],
+        "maria": [],
+        "retranqueiro": [],
+        "zicado": [],
+        "golfinho": []
     }
 
     if df_palpites is None or df_palpites.empty:
@@ -245,7 +246,6 @@ def calculate_perolas(df_palpites: pd.DataFrame) -> dict:
         return resultado
 
     # ── 1. Ousado do Rolê ─────────────────────────────────────────────────
-    # Para cada jogo, identifica palpites únicos (só 1 participante apostou aquele placar)
     df["palpite_str"] = df["palpite_m"].astype(str) + "x" + df["palpite_v"].astype(str)
     
     ousadia_counts = {}
@@ -265,12 +265,12 @@ def calculate_perolas(df_palpites: pd.DataFrame) -> dict:
             ousadia_placares[arroba].append(label)
     
     if ousadia_counts:
-        record_ousado = max(ousadia_counts.values(), key=lambda x: x["valor"])
-        record_ousado["placares"] = ousadia_placares.get(record_ousado["arroba"], [])
-        resultado["ousado"] = record_ousado
+        top_ousados = sorted(ousadia_counts.values(), key=lambda x: x["valor"], reverse=True)[:3]
+        for o in top_ousados:
+            o["placares"] = ousadia_placares.get(o["arroba"], [])
+        resultado["ousado"] = top_ousados
 
     # ── 2. Maria vai com as outras ────────────────────────────────────────
-    # Para cada jogo, identifica o palpite mais apostado (majoritário)
     maria_counts = {}
     maria_placares = {}
     for (mandante, visitante), grupo in df.groupby(["mandante", "visitante"]):
@@ -279,9 +279,8 @@ def calculate_perolas(df_palpites: pd.DataFrame) -> dict:
         if max_count < 2:
             continue  # Não há maioria se todos apostaram diferente
         palpites_mais_comuns = contagem_palpites[contagem_palpites == max_count].index.tolist()
-        palpite_majoritario = palpites_mais_comuns[0]  # Pega o primeiro em caso de empate
+        palpite_majoritario = palpites_mais_comuns[0]
         
-        # Participantes que apostaram o palpite majoritário
         marias = grupo[grupo["palpite_str"] == palpite_majoritario]
         for _, row in marias.iterrows():
             arroba = row["arroba"]
@@ -294,43 +293,57 @@ def calculate_perolas(df_palpites: pd.DataFrame) -> dict:
             maria_placares[arroba].append(label)
     
     if maria_counts:
-        record_maria = max(maria_counts.values(), key=lambda x: x["valor"])
-        record_maria["placares"] = maria_placares.get(record_maria["arroba"], [])
-        resultado["maria"] = record_maria
+        top_marias = sorted(maria_counts.values(), key=lambda x: x["valor"], reverse=True)[:3]
+        for m in top_marias:
+            m["placares"] = maria_placares.get(m["arroba"], [])
+        resultado["maria"] = top_marias
 
     # ── 3. Retranqueiro ──────────────────────────────────────────────────
-    # Soma total de gols apostados por participante
     df["total_gols_palpite"] = df["palpite_m"].fillna(0) + df["palpite_v"].fillna(0)
     gols_totais = df.groupby(["participante", "arroba"])["total_gols_palpite"].sum().reset_index()
     if not gols_totais.empty:
-        idx_min = gols_totais["total_gols_palpite"].idxmin()
-        row = gols_totais.loc[idx_min]
-        resultado["retranqueiro"] = {
-            "participante": row["participante"],
-            "arroba": row["arroba"],
-            "valor": int(row["total_gols_palpite"])
-        }
+        gols_totais_sorted = gols_totais.sort_values(by="total_gols_palpite").head(3)
+        for _, row in gols_totais_sorted.iterrows():
+            resultado["retranqueiro"].append({
+                "participante": row["participante"],
+                "arroba": row["arroba"],
+                "valor": int(row["total_gols_palpite"])
+            })
 
     # ── 4. Zicado ────────────────────────────────────────────────────────
-    # Conta quantas vezes o participante errou por exatamente 1 gol no somatório
-    # Ex.: Placar real 2x0 (soma=2), palpite 2x1 (soma=3) -> diferença 1
-    # Ex.: Placar real 0x0 (soma=0), palpite 1x0 (soma=1) -> diferença 1
     df_com_real = df[(df["placar_real_m"] >= 0) & (df["placar_real_v"] >= 0)].copy()
     if not df_com_real.empty:
         df_com_real["soma_real"] = df_com_real["placar_real_m"] + df_com_real["placar_real_v"]
         df_com_real["soma_palpite"] = df_com_real["palpite_m"] + df_com_real["palpite_v"]
         df_com_real["diff_soma"] = (df_com_real["soma_real"] - df_com_real["soma_palpite"]).abs()
         
-        # Não conta acerto exato (placar exato ou mesmo saldo diferente mas não por 1)
         df_zicados = df_com_real[df_com_real["diff_soma"] == 1]
         if not df_zicados.empty:
             zicado_counts = df_zicados.groupby(["participante", "arroba"]).size().reset_index(name="valor")
-            idx_max = zicado_counts["valor"].idxmax()
-            row = zicado_counts.loc[idx_max]
-            resultado["zicado"] = {
-                "participante": row["participante"],
-                "arroba": row["arroba"],
-                "valor": int(row["valor"])
-            }
+            zicado_counts_sorted = zicado_counts.sort_values(by="valor", ascending=False).head(3)
+            for _, row in zicado_counts_sorted.iterrows():
+                resultado["zicado"].append({
+                    "participante": row["participante"],
+                    "arroba": row["arroba"],
+                    "valor": int(row["valor"])
+                })
+
+    # ── 5. Golfinho ──────────────────────────────────────────────────────
+    if df_historico is not None and not df_historico.empty:
+        golfinhos = []
+        for (nome, arroba), df_part in df_historico.groupby(["participante", "arroba"]):
+            if len(df_part) >= 2:
+                df_part_sorted = df_part.sort_values(by="data_hora").copy()
+                df_part_sorted["delta"] = df_part_sorted["posicao"].shift(1) - df_part_sorted["posicao"]
+                alternancia_total = int(df_part_sorted["delta"].abs().sum())
+                if alternancia_total > 0:
+                    golfinhos.append({
+                        "participante": nome,
+                        "arroba": arroba,
+                        "valor": alternancia_total
+                    })
+        if golfinhos:
+            top_golfinhos = sorted(golfinhos, key=lambda x: x["valor"], reverse=True)[:3]
+            resultado["golfinho"] = top_golfinhos
 
     return resultado

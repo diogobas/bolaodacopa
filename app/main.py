@@ -1,4 +1,5 @@
 import os
+import sys
 import subprocess
 import streamlit as st
 
@@ -12,7 +13,7 @@ def instalar_navegadores_playwright():
     """
     # Define um comando otimizado para baixar APENAS o Chromium, 
     # economizando espaço e tempo de inicialização.
-    comando = ["playwright", "install", "chromium"]
+    comando = [sys.executable, "-m", "playwright", "install", "chromium"]
     
     try:
         # Executa o comando nativo aguardando sua finalização
@@ -21,11 +22,19 @@ def instalar_navegadores_playwright():
     except subprocess.CalledProcessError as erro:
         st.error(f"Erro Crítico de Infraestrutura: Falha na injeção do Playwright. Detalhes: {erro.stderr.decode()}")
         return False
+    except FileNotFoundError:
+        # Se mesmo com sys.executable falhar por algum motivo, podemos tentar rodar direto o comando do sistema ou logar
+        try:
+            comando_alt = ["playwright", "install", "chromium"]
+            subprocess.run(comando_alt, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            return True
+        except Exception as e:
+            st.error(f"Erro ao tentar instalar o Playwright: {e}")
+            return False
 
 # Inicializa o injetor antes do render do dashboard
 instalar_navegadores_playwright()
 
-import sys
 import os
 
 # 1. Captura o caminho absoluto do diretório onde main.py está localizado (pasta 'app')
@@ -664,6 +673,7 @@ elif aba_selecionada == "💎 Pérolas":
     .perola-card-maria::before  { background: linear-gradient(90deg, #a78bfa, #ec4899); }
     .perola-card-retr::before   { background: linear-gradient(90deg, #10b981, #06b6d4); }
     .perola-card-zicado::before { background: linear-gradient(90deg, #f97316, #dc2626); }
+    .perola-card-golfinho::before { background: linear-gradient(90deg, #3b82f6, #0ea5e9); }
     .perola-emoji  { font-size: 3rem; margin-bottom: 8px; display: block; }
     .perola-titulo { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.05em;
                      text-transform: uppercase; margin-bottom: 4px; opacity: 0.7; }
@@ -699,91 +709,102 @@ elif aba_selecionada == "💎 Pérolas":
     if df_palpites.empty:
         st.info("ℹ️ Dados de palpites individuais ainda não coletados. Acesse o **Painel de Administração** e clique em **Atualizar Agora** para coletar os palpites de cada participante.")
     else:
-        perolas = statistics.calculate_perolas(df_palpites)
+        def render_top3(lista, unidade, emoji_medalhas=["🥇", "🥈", "🥉"]):
+            if not lista:
+                return "<div style='opacity:0.6; padding: 10px 0;'>Nenhum participante qualificado.</div>"
+            html = '<div style="margin-top: 16px;">'
+            for i, p in enumerate(lista):
+                medalha = emoji_medalhas[i] if i < len(emoji_medalhas) else "🏅"
+                font_size = "1.2rem" if i == 0 else "1.1rem"
+                val_padding = "4px 12px" if i == 0 else "2px 8px"
+                val_font = "1.1rem" if i == 0 else "1.0rem"
+                html += f'<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; background: rgba(255,255,255,0.04); padding: 8px 12px; border-radius: 8px; border-left: 3px solid rgba(255,255,255,0.2);">'
+                html += f'<div><span style="font-size: {font_size};">{medalha}</span> <strong style="font-size: {font_size};">{p["participante"]}</strong> <span style="font-size:0.8rem; opacity:0.7;">{p["arroba"]}</span></div>'
+                html += f'<div class="perola-valor" style="margin-top: 0; padding: {val_padding}; font-size: {val_font};">{p["valor"]} <span style="font-size: 0.7em; opacity:0.8;">{unidade}</span></div>'
+                html += '</div>'
+                if i == 0 and p.get("placares"):
+                    items = "".join(f'<div class="perola-placares-item">⚽ {pl}</div>' for pl in p["placares"])
+                    html += f'<div class="perola-placares" style="margin-bottom: 12px; margin-top: -4px;">{items}</div>'
+            html += '</div>'
+            return html
+
+        perolas = statistics.calculate_perolas(df_palpites, df_historico)
         
         col1, col2 = st.columns(2)
         
         # ── OUSADO DO ROLÊ ──────────────────────────────────────────────────────
         with col1:
-            ousado = perolas["ousado"]
-            ousado_placares_html = ""
-            if ousado.get("placares"):
-                items = "".join(f'<div class="perola-placares-item">⚽ {p}</div>' for p in ousado["placares"])
-                ousado_placares_html = f'<div class="perola-placares">Palpite único nos jogos:<br>{items}</div>'
-                
             st.markdown(f"""
-            <div class="perola-card perola-card-ousado">
-                <span class="perola-emoji">🦅</span>
-                <div class="perola-titulo">Ousado do Rolê</div>
-                <div class="perola-nome">{ousado['participante']}</div>
-                <div class="perola-arroba">{ousado['arroba']}</div>
-                <div class="perola-valor">{ousado['valor']} palpite(s) único(s)</div>
-                <div class="perola-desc">
-                    Apostou sozinho, sem mais ninguém com o mesmo placar.
-                    O mais ousado e criativo do grupo!
-                </div>
-                {ousado_placares_html}
-            </div>
-            """, unsafe_allow_html=True)
-        
+<div class="perola-card perola-card-ousado">
+    <span class="perola-emoji">🦅</span>
+    <div class="perola-titulo">Ousado do Rolê</div>
+    <div class="perola-desc">
+        Apostou sozinho, sem mais ninguém com o mesmo placar.
+        O mais ousado e criativo do grupo!
+    </div>
+{render_top3(perolas.get('ousado', []), 'palpite(s)')}
+</div>
+""", unsafe_allow_html=True)
+            
         # ── MARIA VAI COM AS OUTRAS ──────────────────────────────────────────────
         with col2:
-            maria = perolas["maria"]
-            placares_html = ""
-            if maria.get("placares"):
-                items = "".join(f'<div class="perola-placares-item">⚽ {p}</div>' for p in maria["placares"])
-                placares_html = f'<div class="perola-placares">Coincidiu nos jogos:<br>{items}</div>'
-            
             st.markdown(f"""
-            <div class="perola-card perola-card-maria">
-                <span class="perola-emoji">🐑</span>
-                <div class="perola-titulo">Maria vai com as outras</div>
-                <div class="perola-nome">{maria['participante']}</div>
-                <div class="perola-arroba">{maria['arroba']}</div>
-                <div class="perola-valor">{maria['valor']} vez(es) com a maioria</div>
-                <div class="perola-desc">
-                    Mais vezes apostou o mesmo placar que a maioria do grupo.
-                    Segurança em números!
-                </div>
-                {placares_html}
-            </div>
-            """, unsafe_allow_html=True)
-        
+<div class="perola-card perola-card-maria">
+    <span class="perola-emoji">🐑</span>
+    <div class="perola-titulo">Maria vai com as outras</div>
+    <div class="perola-desc">
+        Mais vezes apostou o mesmo placar que a maioria do grupo.
+        Segurança em números!
+    </div>
+{render_top3(perolas.get('maria', []), 'vez(es)')}
+</div>
+""", unsafe_allow_html=True)
+            
         col3, col4 = st.columns(2)
         
         # ── RETRANQUEIRO ─────────────────────────────────────────────────────────
         with col3:
-            retr = perolas["retranqueiro"]
             st.markdown(f"""
-            <div class="perola-card perola-card-retr">
-                <span class="perola-emoji">🧱</span>
-                <div class="perola-titulo">Retranqueiro</div>
-                <div class="perola-nome">{retr['participante']}</div>
-                <div class="perola-arroba">{retr['arroba']}</div>
-                <div class="perola-valor">{retr['valor']} gol(s) apostados no total</div>
-                <div class="perola-desc">
-                    Apostou menos gols que qualquer outro participante.
-                    Amor pelo 0x0!
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        
+<div class="perola-card perola-card-retr">
+    <span class="perola-emoji">🧱</span>
+    <div class="perola-titulo">Retranqueiro</div>
+    <div class="perola-desc">
+        Apostou menos gols que qualquer outro participante.
+        Amor pelo 0x0!
+    </div>
+{render_top3(perolas.get('retranqueiro', []), 'gol(s)')}
+</div>
+""", unsafe_allow_html=True)
+            
         # ── ZICADO ───────────────────────────────────────────────────────────────
         with col4:
-            zicado = perolas["zicado"]
             st.markdown(f"""
-            <div class="perola-card perola-card-zicado">
-                <span class="perola-emoji">🤦</span>
-                <div class="perola-titulo">Zicado</div>
-                <div class="perola-nome">{zicado['participante']}</div>
-                <div class="perola-arroba">{zicado['arroba']}</div>
-                <div class="perola-valor">{zicado['valor']} vez(es) que errou por 1 gol</div>
-                <div class="perola-desc">
-                    Mais vezes errou o placar por apenas um gol de diferença no total.
-                    Quase lá... mas não!
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+<div class="perola-card perola-card-zicado">
+    <span class="perola-emoji">🤦</span>
+    <div class="perola-titulo">Zicado</div>
+    <div class="perola-desc">
+        Mais vezes errou o placar por apenas um gol de diferença no total.
+        Quase lá... mas não!
+    </div>
+{render_top3(perolas.get('zicado', []), 'vez(es)')}
+</div>
+""", unsafe_allow_html=True)
+            
+        col5, col6 = st.columns(2)
+        
+        # ── GOLFINHO ───────────────────────────────────────────────────────────────
+        with col5:
+            st.markdown(f"""
+<div class="perola-card perola-card-golfinho">
+    <span class="perola-emoji">🐬</span>
+    <div class="perola-titulo">Golfinho</div>
+    <div class="perola-desc">
+        Participantes que mais alternaram posições (para cima ou para baixo) ao longo do tempo.
+        Sobe e desce sem parar!
+    </div>
+{render_top3(perolas.get('golfinho', []), 'posições movidas')}
+</div>
+""", unsafe_allow_html=True)
         
         # Tabela de detalhes dos palpites
         st.markdown("---")
