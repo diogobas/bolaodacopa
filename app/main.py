@@ -63,29 +63,6 @@ st.set_page_config(page_title="🏆 Bolão é Nóis na Copa", page_icon="⚽", l
 # Estilização CSS Avançada (Compacta, elegante e integrada)
 st.markdown("""
 <style>
-    /* 1. FORÇA A EXIBIÇÃO E O CONTRASTE DO CABEÇALHO */
-    /* O seletor atinge o elemento raiz do header do Streamlit */
-    header[data-testid="stHeader"] {
-    display: block !important;
-    visibility: visible !important;
-    background-color: #0f172a !important; /* Azul escuro (Dark Slate) para combinar com seu layout */
-    z-index: 999999 !important; /* Força o menu a ficar por cima de qualquer banner ou tabela */
-    }
-
-    /* 2. FORÇA A COR DO BOTÃO (MENU SANDUÍCHE) PARA BRANCO */
-    header[data-testid="stHeader"] * {
-    color: #ffffff !important; 
-    fill: #ffffff !important; /* Garante que elementos vetoriais SVG também fiquem brancos */
-    }
-
-    /* 3. MEDIA QUERY: AJUSTE EXCLUSIVO PARA DISPOSITIVOS MÓVEIS */
-    /* A regra abaixo só é ativada em telas com largura máxima de 768px (Celulares) */
-    @media (max-width: 768px) {
-    /* Devolve o espaço no topo da tela para que o header não cubra o seu banner da Copa */
-    .block-container {
-        padding-top: 4rem !important; 
-        }
-    }
     /* Google Fonts */
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
     
@@ -93,10 +70,36 @@ st.markdown("""
     html, body, [class*="css"] {
         font-family: 'Outfit', sans-serif;
     }
+
+    /* ========================================== */
+    /* CORREÇÃO DA NAVEGAÇÃO MOBILE (MENU SANDUÍCHE) */
+    /* ========================================== */
     
-    /* Redução drástica dos espaçamentos em branco padrão do Streamlit */
+    /* 1. FORÇA A EXIBIÇÃO E O CONTRASTE DO CABEÇALHO */
+    header[data-testid="stHeader"] {
+        display: block !important;
+        visibility: visible !important;
+        background-color: #0f172a !important; 
+        z-index: 999999 !important; 
+    }
+
+    /* 2. FORÇA A COR DO BOTÃO (MENU) PARA BRANCO */
+    header[data-testid="stHeader"] * {
+        color: #ffffff !important; 
+        fill: #ffffff !important; 
+    }
+
+    /* 3. MEDIA QUERY: AJUSTE DE ESPAÇO PARA O CELULAR */
+    @media (max-width: 768px) {
+        .block-container {
+            padding-top: 4rem !important; 
+        }
+    }
+    /* ========================================== */
+    
+    /* Redução drástica dos espaçamentos em branco padrão do Streamlit no Desktop */
     .block-container {
-        padding-top: 0.8rem !important;
+        padding-top: 0.8rem; /* Sem o !important para não conflitar com o mobile acima */
         padding-bottom: 1rem !important;
         padding-left: 2.5% !important;
         padding-right: 2.5% !important;
@@ -108,14 +111,9 @@ st.markdown("""
         gap: 0.7rem !important;
     }
     
-    /* Oculta o cabeçalho em branco nativo do Streamlit */
-    header[data-testid="stHeader"] {
-        display: none !important;
-    }
-    
     /* Tom de fundo refinado */
     .stApp {
-        background-color: #f8fafc !important; /* Slate 50 */
+        background-color: #f8fafc !important; 
     }
     
     /* Cabeçalho da Copa do Mundo - Compacto e Premium */
@@ -150,16 +148,6 @@ st.markdown("""
         margin-top: 2px;
         color: #eab308;
         font-weight: 500;
-    }
-    
-    .header-badge {
-        background: rgba(234, 179, 8, 0.15);
-        border: 1px solid #eab308;
-        padding: 4px 14px;
-        border-radius: 20px;
-        color: #eab308;
-        font-weight: 700;
-        font-size: 0.85rem;
     }
     
     /* Barra lateral estilizada (Dark Slate) */
@@ -207,11 +195,6 @@ st.markdown("""
         color: #0f172a;
     }
     
-    /* Diferenciação de cores de pódio para os cards */
-    .podium-1st { border-left-color: #eab308 !important; }
-    .podium-2nd { border-left-color: #94a3b8 !important; }
-    .podium-3rd { border-left-color: #b45309 !important; }
-    
     /* Customização de Títulos das Seções */
     .section-title {
         font-size: 1.25rem;
@@ -221,12 +204,6 @@ st.markdown("""
         margin-bottom: 10px;
         border-bottom: 2px solid #e2e8f0;
         padding-bottom: 4px;
-    }
-    
-    /* Painéis de logs e código */
-    div[data-testid="stCodeBlock"] {
-        border-radius: 8px;
-        border: 1px solid #e2e8f0;
     }
     
     /* Ajustes das Tabelas */
