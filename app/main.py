@@ -489,12 +489,20 @@ elif aba_selecionada == "👤 Evolução Individual":
             
             fig_rank.update_layout(
                 height=400,
-                margin=dict(l=10, r=10, t=30, b=10),
+                margin=dict(l=10, r=10, t=40, b=10),
                 plot_bgcolor="rgba(0,0,0,0)",
                 paper_bgcolor="rgba(0,0,0,0)",
                 yaxis=dict(gridcolor="#e2e8f0"),
                 xaxis=dict(gridcolor="#e2e8f0"),
-                font=dict(family="Outfit, sans-serif", size=10)
+                font=dict(family="Outfit, sans-serif", size=10),
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="center",
+                    x=0.5,
+                    title_text=None
+                )
             )
             
             if not comparar:
