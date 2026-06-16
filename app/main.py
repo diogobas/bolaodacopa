@@ -478,7 +478,7 @@ elif aba_selecionada == "👤 Evolução Individual":
                 y="posicao",
                 color="participante",
                 markers=True,
-                title=f"Evolução de Ranking - {participante_selecionado}" + (f" vs {participante_comp}" if comparar else ""),
+                title="Evolução de Ranking",
                 labels={"dia_copa": "Dia da Copa", "posicao": "Posição", "participante": "Participante"}
             )
             
