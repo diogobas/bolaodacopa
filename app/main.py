@@ -60,7 +60,7 @@ from app.utils import statistics
 # Configuração da página Streamlit (layout wide e título premium)
 st.set_page_config(page_title="🏆 Bolão é Nóis na Copa", page_icon="⚽", layout="wide")
 
-# Estilização CSS Avançada (Responsiva, Limpa e Híbrida)
+# Estilização CSS Avançada (Responsiva, Limpa e Corrigida)
 st.markdown("""
 <style>
     /* ========================================== */
@@ -76,9 +76,13 @@ st.markdown("""
         background-color: #f8fafc !important; 
     }
 
-    /* Oculta os botões de ferramentas da nuvem (Fork, Share, etc) */
-    [data-testid="stToolbar"],
-    [data-testid="stStatusWidget"],
+    /* ========================================== */
+    /* 1. LIMPEZA SEGURA DA INTERFACE DA NUVEM    */
+    /* ========================================== */
+    /* ATENÇÃO: Nunca ocultar o stToolbar inteiro, senão o menu morre! */
+    /* Oculta apenas o botão de Deploy, Share e a marca d'água */
+    .stDeployButton,
+    [data-testid="stToolbarActionButton"],
     .viewerBadge_container__1QSob,
     .viewerBadge_link__1S137,
     #viewerBadge_container__1QSob {
@@ -87,15 +91,13 @@ st.markdown("""
     }
 
     /* ========================================== */
-    /* COMPORTAMENTO DESKTOP (Monitores e PCs)    */
+    /* 2. COMPORTAMENTO DESKTOP (Monitores e PCs) */
     /* ========================================== */
     @media (min-width: 769px) {
-        /* Oculta completamente o cabeçalho superior, pois o menu lateral já atende */
         header[data-testid="stHeader"] {
-            display: none !important;
+            display: none !important; /* No PC o menu lateral já resolve */
         }
         
-        /* Ajuste fino dos espaçamentos laterais e superiores para tela grande */
         .block-container {
             padding-top: 2.5rem !important; 
             padding-bottom: 1rem !important;
@@ -106,62 +108,39 @@ st.markdown("""
     }
 
     /* ========================================== */
-    /* COMPORTAMENTO MOBILE (Celulares)           */
+    /* 3. COMPORTAMENTO MOBILE (Celulares)        */
     /* ========================================== */
     @media (max-width: 768px) {
-        /* 1. CORREÇÃO DA SOBREPOSIÇÃO: Trava o cabeçalho no topo com prioridade máxima */
+        /* A. Configura a barra superior (Header) para azul escuro e sempre visível */
         header[data-testid="stHeader"] {
-            display: flex !important;
-            visibility: visible !important;
-            background-color: #0f172a !important; /* Cor idêntica à barra lateral */
-            z-index: 999999 !important; /* Supera qualquer outra camada visual */
-            position: fixed !important;
-            top: 0 !important;
-            width: 100% !important;
-            border-bottom: 2px solid #334155 !important;
+            background-color: #0f172a !important; 
+            z-index: 999999 !important; 
         }
 
-        /* 2. LIBERAÇÃO DE ESPAÇO: Empurra o banner da Copa para baixo, evitando esmagamento */
+        /* B. Pinta o ícone de hambúrguer nativo de branco */
+        header[data-testid="stHeader"] svg {
+            fill: #ffffff !important;
+            color: #ffffff !important;
+        }
+
+        /* C. Injeta a palavra "Menu" ao lado do ícone usando o botão de colapso */
+        [data-testid="collapsedControl"]::after,
+        button[kind="header"]::after {
+            content: " Menu" !important;
+            color: #ffffff !important;
+            font-size: 1.15rem !important;
+            font-weight: 700 !important;
+            display: inline-block !important;
+            margin-left: 5px !important;
+        }
+
+        /* D. Cria um escudo de espaço para o banner da copa não ser esmagado */
         .block-container {
-            padding-top: 5rem !important; /* Margem vitalícia contra sobreposição */
+            padding-top: 4.5rem !important; 
             padding-bottom: 1rem !important;
             padding-left: 3% !important;
             padding-right: 3% !important;
             max-width: 100% !important;
-        }
-
-        /* 3. VISIBILIDADE DO ÍCONE: Garante que o vetor nativo (>> ou sanduíche) apareça na cor branca */
-        header[data-testid="stHeader"] svg {
-            display: block !important;
-            fill: #ffffff !important;
-            color: #ffffff !important;
-            width: 24px !important;
-            height: 24px !important;
-        }
-
-        /* 4. EXPANSÃO DO BOTÃO: Transforma a área clicável em Flexbox para acomodar o texto ao lado do ícone */
-        header[data-testid="stHeader"] button {
-            display: flex !important;
-            align-items: center !important;
-            justify-content: flex-start !important;
-            width: auto !important; /* Adapta-se ao conteúdo injetado */
-            height: auto !important;
-            padding: 8px 16px !important;
-            background-color: transparent !important;
-            border: none !important;
-            margin-top: 5px !important;
-        }
-
-        /* 5. INJEÇÃO DIDÁTICA: Acopla a palavra 'Menu' imediatamente após o ícone vetorial */
-        header[data-testid="stHeader"] button::after {
-            content: " Menu" !important; /* Espaço inicial crítico para separar do ícone */
-            color: #ffffff !important;
-            font-size: 1.15rem !important;
-            font-weight: 700 !important;
-            letter-spacing: 0.5px !important;
-            margin-left: 8px !important;
-            display: inline-block !important;
-            visibility: visible !important;
         }
     }
 
