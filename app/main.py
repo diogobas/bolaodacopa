@@ -11,19 +11,15 @@ def instalar_navegadores_playwright():
     O uso do cache garante que este processo massivo ocorra apenas uma vez 
     durante o ciclo de vida do contêiner.
     """
-    # Define um comando otimizado para baixar APENAS o Chromium, 
-    # economizando espaço e tempo de inicialização.
     comando = [sys.executable, "-m", "playwright", "install", "chromium"]
     
     try:
-        # Executa o comando nativo aguardando sua finalização
         subprocess.run(comando, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         return True
     except subprocess.CalledProcessError as erro:
         st.error(f"Erro Crítico de Infraestrutura: Falha na injeção do Playwright. Detalhes: {erro.stderr.decode()}")
         return False
     except FileNotFoundError:
-        # Se mesmo com sys.executable falhar por algum motivo, podemos tentar rodar direto o comando do sistema ou logar
         try:
             comando_alt = ["playwright", "install", "chromium"]
             subprocess.run(comando_alt, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -65,6 +61,18 @@ from datetime import datetime
 from config import settings
 from collectors import scraper
 from app.utils import statistics
+from app import scheduler
+
+@st.cache_resource
+def iniciar_agendador():
+    """
+    Inicia a thread de agendamento automático em background.
+    O cache garante que a thread seja criada apenas uma vez por instância do app.
+    """
+    return scheduler.start_scheduler()
+
+# Inicia o agendador de sincronização automática
+iniciar_agendador()
 
 # Configuração da página Streamlit (layout wide e título premium)
 st.set_page_config(page_title="🏆 Bolão é Nóis na Copa", page_icon="⚽", layout="wide")
@@ -88,8 +96,6 @@ st.markdown("""
     /* ========================================== */
     /* 1. LIMPEZA SEGURA DA INTERFACE DA NUVEM    */
     /* ========================================== */
-    /* ATENÇÃO: Nunca ocultar o stToolbar inteiro, senão o menu morre! */
-    /* Oculta apenas o botão de Deploy, Share e a marca d'água */
     .stDeployButton,
     [data-testid="stToolbarActionButton"],
     .viewerBadge_container__1QSob,
@@ -104,7 +110,7 @@ st.markdown("""
     /* ========================================== */
     @media (min-width: 769px) {
         header[data-testid="stHeader"] {
-            display: none !important; /* No PC o menu lateral já resolve */
+            display: none !important;
         }
         
         .block-container {
@@ -120,24 +126,21 @@ st.markdown("""
     /* 3. COMPORTAMENTO MOBILE (Celulares)        */
     /* ========================================== */
     @media (max-width: 768px) {
-        /* A. Configura a barra superior (Header) para azul escuro sólido */
         header[data-testid="stHeader"] {
             background-color: #0f172a !important; 
             z-index: 999998 !important; 
         }
 
-        /* B. Oculta sumariamente o ícone nativo ">>" (vetor SVG original) */
         [data-testid="collapsedControl"] svg,
         button[kind="header"] svg {
             display: none !important;
         }
 
-        /* C. Injeta o Ícone de Menu Hambúrguer (☰) via tabela Unicode nativa */
         [data-testid="collapsedControl"]::before,
         button[kind="header"]::before {
-            content: "\\2630" !important; /* Código Hexadecimal das 3 linhas */
-            color: #ffffff !important; /* Garante o alto contraste (Branco) */
-            font-size: 1.8rem !important; /* Amplia o ícone para facilidade de toque */
+            content: "\\2630" !important;
+            color: #ffffff !important;
+            font-size: 1.8rem !important;
             font-weight: bold !important;
             display: flex !important;
             align-items: center !important;
@@ -146,12 +149,10 @@ st.markdown("""
             height: 40px !important;
         }
 
-        /* D. Pinta os 3 pontos superiores direitos de branco (Módulo de Configuração) */
         header[data-testid="stHeader"] * {
             color: #ffffff !important;
         }
 
-        /* E. Escudo de Proteção Geométrica para o Banner Principal da Copa */
         .block-container {
             padding-top: 4.5rem !important; 
             padding-bottom: 1rem !important;
@@ -160,8 +161,6 @@ st.markdown("""
             max-width: 100% !important;
         }
 
-        /* Remove a barra de ferramentas do Plotly no mobile para evitar ocultar a legenda */
-        /* Afeta somente telas <= 768px; não altera desktop */
         .modebar, .modebar-container, .modebar-btn, .plotly .modebar {
             display: none !important;
             visibility: hidden !important;
@@ -261,7 +260,6 @@ def load_data():
             historico = pd.read_excel(settings.HISTORICO_EXCEL)
             if not historico.empty:
                 historico["data_hora"] = pd.to_datetime(historico["data_hora"]).dt.strftime("%Y-%m-%d %H:%M:%S")
-                # Preenche valores vazios em colunas novas com 0
                 for col in ["placar_exato", "gols_vencedor", "saldo_gols", "gols_perdedor", "vencedor_certo", "sem_pontos"]:
                     if col not in historico.columns:
                         historico[col] = 0
@@ -301,7 +299,6 @@ admin_key = admin_expander.text_input("Chave do Admin", type="password")
 
 is_admin_authenticated = (admin_key == "vaibrasa")
 
-# Oculta a Visão Geral. O Ranking Atual é o inicial.
 navigation_options = ["📊 Ranking Atual", "👤 Evolução Individual", "⚡ Estatísticas", "💎 Pérolas"]
 if is_admin_authenticated:
     navigation_options.append("⚙️ Administração")
@@ -319,14 +316,10 @@ if aba_selecionada == "📊 Ranking Atual":
     if df_historico.empty:
         st.info("Nenhum dado cadastrado. Atualize o bolão no Painel Admin.")
     else:
-        # Filtra pelo último snapshot de classificação
         ultimo_coleta_id = df_historico["coleta_id"].iloc[-1]
         df_ranking = df_historico[df_historico["coleta_id"] == ultimo_coleta_id].copy()
-        
-        # Ordena por posição
         df_ranking = df_ranking.sort_values(by="posicao")
         
-        # Ajusta exibição das colunas incluindo os acertos detalhados
         df_exibicao = df_ranking[[
             "posicao", "participante", "arroba", "pontos", 
             "placar_exato", "gols_vencedor", "saldo_gols", 
@@ -354,7 +347,6 @@ if aba_selecionada == "📊 Ranking Atual":
             
         df_exibicao["Posição"] = df_exibicao["Posição"].apply(medalha)
         
-        # Renderiza a tabela Streamlit dinâmica com menos espaço livre
         st.dataframe(
             df_exibicao,
             use_container_width=True,
@@ -369,22 +361,18 @@ elif aba_selecionada == "👤 Evolução Individual":
     if df_historico.empty:
         st.info("Nenhum dado cadastrado.")
     else:
-        # Agrupa o histórico por dia da Copa, pegando a última coleta de cada dia
         df_diario = df_historico.copy()
         df_diario["data"] = pd.to_datetime(df_diario["data_hora"]).dt.date
         
-        # Data de início da copa: 2026-06-11
         from datetime import date
         data_inicio = date(2026, 6, 11)
         df_diario["dia_copa"] = df_diario["data"].apply(lambda d: (d - data_inicio).days + 1)
         
-        # Ordena cronologicamente para garantir que pegamos a última do dia
         df_diario = df_diario.sort_values(by="data_hora")
         df_diario_grouped = df_diario.groupby(["participante", "arroba", "dia_copa"]).last().reset_index()
         
         lista_participantes = sorted(df_diario_grouped["participante"].unique())
         
-        # Layout de seleção e comparação
         c_title, c_selects = st.columns([1.5, 2.5])
         with c_title:
             st.markdown("<p style='margin-top:5px; color:#64748b;'>Selecione o participante principal e escolha se deseja comparar com outro.</p>", unsafe_allow_html=True)
@@ -404,10 +392,8 @@ elif aba_selecionada == "👤 Evolução Individual":
             
         arroba_selecionado = df_diario_grouped[df_diario_grouped["participante"] == participante_selecionado]["arroba"].iloc[0]
         
-        # Calcula as estatísticas individuais do principal
         ind_stats = statistics.calculate_individual_statistics(df_diario_grouped, arroba_selecionado)
         
-        # Desenha os cards usando o Grid HTML dependendo da comparação
         if not comparar:
             st.markdown(f"""
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 15px;">
@@ -480,7 +466,6 @@ elif aba_selecionada == "👤 Evolução Individual":
                     </div>
                     """, unsafe_allow_html=True)
                     
-        # Renderiza o gráfico da evolução do ranking
         df_ind1 = df_diario_grouped[df_diario_grouped["arroba"] == arroba_selecionado].copy()
         if comparar and arroba_comp:
             df_ind2 = df_diario_grouped[df_diario_grouped["arroba"] == arroba_comp].copy()
@@ -499,9 +484,7 @@ elif aba_selecionada == "👤 Evolução Individual":
                 labels={"dia_copa": "Dia da Copa", "posicao": "Posição", "participante": "Participante"}
             )
             
-            # Configurações solicitadas do Eixo Y: de 1 (em cima) a 21 embaixo
             fig_rank.update_yaxes(range=[21.5, 0.5], tickmode="linear", tick0=1, dtick=1)
-            # Configurações solicitadas do Eixo X: somente inteiros (1 a 39 dias)
             fig_rank.update_xaxes(range=[0.5, 39.5], tickmode="linear", tick0=1, dtick=1)
             
             fig_rank.update_layout(
@@ -548,9 +531,6 @@ elif aba_selecionada == "⚡ Estatísticas":
             seq = global_stats["melhor_sequencia"]
             pontos = global_stats["melhor_pontuacao"]
             cons = global_stats["mais_consistente"]
-            
-            # Painel com fontes e espaçamentos otimizados
-            # Painel com fontes e espaçamentos otimizados e novos recordistas
             pe_rec = global_stats["mais_placares_exatos"]
             sp_rec = global_stats["mais_sem_pontos"]
             
@@ -604,7 +584,49 @@ elif aba_selecionada == "⚡ Estatísticas":
 
 elif aba_selecionada == "⚙️ Administração" and is_admin_authenticated:
     st.markdown("<div class='section-title'>Painel Administrativo do Bolão</div>", unsafe_allow_html=True)
-    
+
+    # ── STATUS DO AGENDADOR AUTOMÁTICO ──────────────────────────────────────
+    sched_status = scheduler.get_status()
+
+    ultima_exec = sched_status.get("ultima_execucao_auto")
+    ultima_sucesso = sched_status.get("ultima_execucao_sucesso")
+    em_execucao = sched_status.get("em_execucao", False)
+    proxima = sched_status.get("proxima_execucao", "—")
+    horario_gatilho = sched_status.get("horario_disparado", "—")
+
+    if ultima_exec:
+        ultima_exec_str = ultima_exec.strftime("%d/%m/%Y às %H:%M:%S")
+        icone_sucesso = "✅" if ultima_sucesso else "❌"
+        ultima_label = f"{icone_sucesso} {ultima_exec_str} (gatilho: {horario_gatilho} BRT)"
+    else:
+        ultima_label = "Nenhuma execução automática desde que o app foi iniciado."
+
+    status_cor = "#f59e0b" if em_execucao else "#16a34a"
+    status_txt = "⏳ Sincronizando agora..." if em_execucao else "✅ Aguardando próximo horário"
+
+    st.markdown(f"""
+    <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; border: 1px solid #334155;">
+        <div style="color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 8px;">🤖 Agendador Automático</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+            <div>
+                <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 2px;">Status</div>
+                <div style="color: {status_cor}; font-weight: 700; font-size: 0.95rem;">{status_txt}</div>
+            </div>
+            <div>
+                <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 2px;">Última Execução Automática</div>
+                <div style="color: #f8fafc; font-weight: 600; font-size: 0.85rem;">{ultima_label}</div>
+            </div>
+            <div>
+                <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 2px;">Próximo Horário (BRT)</div>
+                <div style="color: #eab308; font-weight: 700; font-size: 1.1rem;">🕐 {proxima}</div>
+            </div>
+        </div>
+        <div style="margin-top: 10px; color: #475569; font-size: 0.75rem;">
+            Horários programados (BRT): {' · '.join(sorted(scheduler.HORARIOS_AGENDADOS))}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
     col_btn, col_info = st.columns([1, 2])
     
     with col_btn:
@@ -635,7 +657,6 @@ elif aba_selecionada == "⚙️ Administração" and is_admin_authenticated:
             try:
                 with open(log_file, "r", encoding="utf-8") as f:
                     linhas = f.readlines()
-                    # Exibe logs de forma condensada
                     ultimas_linhas = linhas[-12:] if len(linhas) > 12 else linhas
                     st.code("".join(ultimas_linhas), language="text")
             except Exception as e:
@@ -669,11 +690,18 @@ elif aba_selecionada == "💎 Pérolas":
         height: 3px;
         border-radius: 16px 16px 0 0;
     }
-    .perola-card-ousado::before { background: linear-gradient(90deg, #f59e0b, #ef4444); }
-    .perola-card-maria::before  { background: linear-gradient(90deg, #a78bfa, #ec4899); }
-    .perola-card-retr::before   { background: linear-gradient(90deg, #10b981, #06b6d4); }
-    .perola-card-zicado::before { background: linear-gradient(90deg, #f97316, #dc2626); }
-    .perola-card-golfinho::before { background: linear-gradient(90deg, #3b82f6, #0ea5e9); }
+    .perola-card-visionario::before   { background: linear-gradient(90deg, #6366f1, #8b5cf6); }
+    .perola-card-nostradamus::before  { background: linear-gradient(90deg, #f59e0b, #eab308); }
+    .perola-card-ousado::before       { background: linear-gradient(90deg, #f59e0b, #ef4444); }
+    .perola-card-maria::before        { background: linear-gradient(90deg, #a78bfa, #ec4899); }
+    .perola-card-retr::before         { background: linear-gradient(90deg, #10b981, #06b6d4); }
+    .perola-card-futebolarte::before  { background: linear-gradient(90deg, #f97316, #eab308); }
+    .perola-card-zicado::before       { background: linear-gradient(90deg, #f97316, #dc2626); }
+    .perola-card-pefrio::before       { background: linear-gradient(90deg, #64748b, #475569); }
+    .perola-card-golfinho::before     { background: linear-gradient(90deg, #3b82f6, #0ea5e9); }
+    .perola-card-rocha::before        { background: linear-gradient(90deg, #78716c, #57534e); }
+    .perola-card-diplomata::before    { background: linear-gradient(90deg, #14b8a6, #0d9488); }
+    .perola-card-arroz::before        { background: linear-gradient(90deg, #84cc16, #65a30d); }
     .perola-emoji  { font-size: 3rem; margin-bottom: 8px; display: block; }
     .perola-titulo { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.05em;
                      text-transform: uppercase; margin-bottom: 4px; opacity: 0.7; }
@@ -709,7 +737,10 @@ elif aba_selecionada == "💎 Pérolas":
     if df_palpites.empty:
         st.info("ℹ️ Dados de palpites individuais ainda não coletados. Acesse o **Painel de Administração** e clique em **Atualizar Agora** para coletar os palpites de cada participante.")
     else:
-        def render_top3(lista, unidade, emoji_medalhas=["🥇", "🥈", "🥉"]):
+        # ── Função auxiliar de renderização de ranking ─────────────────────────
+        def render_top3(lista, unidade, emoji_medalhas=None):
+            if emoji_medalhas is None:
+                emoji_medalhas = ["🥇", "🥈", "🥉"]
             if not lista:
                 return "<div style='opacity:0.6; padding: 10px 0;'>Nenhum participante qualificado.</div>"
             html = '<div style="margin-top: 16px;">'
@@ -718,95 +749,163 @@ elif aba_selecionada == "💎 Pérolas":
                 font_size = "1.2rem" if i == 0 else "1.1rem"
                 val_padding = "4px 12px" if i == 0 else "2px 8px"
                 val_font = "1.1rem" if i == 0 else "1.0rem"
-                html += f'<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; background: rgba(255,255,255,0.04); padding: 8px 12px; border-radius: 8px; border-left: 3px solid rgba(255,255,255,0.2);">'
-                html += f'<div><span style="font-size: {font_size};">{medalha}</span> <strong style="font-size: {font_size};">{p["participante"]}</strong> <span style="font-size:0.8rem; opacity:0.7;">{p["arroba"]}</span></div>'
-                html += f'<div class="perola-valor" style="margin-top: 0; padding: {val_padding}; font-size: {val_font};">{p["valor"]} <span style="font-size: 0.7em; opacity:0.8;">{unidade}</span></div>'
+                html += (
+                    f'<div style="display: flex; justify-content: space-between; align-items: center; '
+                    f'margin-bottom: 8px; background: rgba(255,255,255,0.04); padding: 8px 12px; '
+                    f'border-radius: 8px; border-left: 3px solid rgba(255,255,255,0.2);">'
+                )
+                html += (
+                    f'<div><span style="font-size: {font_size};">{medalha}</span> '
+                    f'<strong style="font-size: {font_size};">{p["participante"]}</strong> '
+                    f'<span style="font-size:0.8rem; opacity:0.7;">{p["arroba"]}</span></div>'
+                )
+                html += (
+                    f'<div class="perola-valor" style="margin-top: 0; padding: {val_padding}; '
+                    f'font-size: {val_font};">{p["valor"]} '
+                    f'<span style="font-size: 0.7em; opacity:0.8;">{unidade}</span></div>'
+                )
                 html += '</div>'
+                # Destaque de placares extras para o 1º colocado
                 if i == 0 and p.get("placares"):
-                    items = "".join(f'<div class="perola-placares-item">⚽ {pl}</div>' for pl in p["placares"])
+                    items = "".join(
+                        f'<div class="perola-placares-item">⚽ {pl}</div>' for pl in p["placares"]
+                    )
                     html += f'<div class="perola-placares" style="margin-bottom: 12px; margin-top: -4px;">{items}</div>'
+                # Destaque de info extra genérica (ex: placar favorito para Arroz com Feijão)
+                if i == 0 and p.get("info_extra"):
+                    html += (
+                        f'<div class="perola-placares" style="margin-bottom: 12px; margin-top: -4px;">'
+                        f'<div class="perola-placares-item">🔁 {p["info_extra"]}</div></div>'
+                    )
             html += '</div>'
             return html
 
+        # ── Configura e calcula as Pérolas ─────────────────────────────────────
         perolas = statistics.calculate_perolas(df_palpites, df_historico)
-        
-        col1, col2 = st.columns(2)
-        
-        # ── OUSADO DO ROLÊ ──────────────────────────────────────────────────────
-        with col1:
-            st.markdown(f"""
-<div class="perola-card perola-card-ousado">
-    <span class="perola-emoji">🦅</span>
-    <div class="perola-titulo">Ousado do Rolê</div>
-    <div class="perola-desc">
-        Apostou sozinho, sem mais ninguém com o mesmo placar.
-        O mais ousado e criativo do grupo!
-    </div>
-{render_top3(perolas.get('ousado', []), 'palpite(s)')}
+
+        # ── CONFIGURAÇÃO DAS PÉROLAS ────────────────────────────────────────────
+        # Cada entrada define: chave nos dados, classe CSS, emoji, título, descrição, unidade
+        PEROLAS_CONFIG = [
+            # Linha 1
+            {
+                "chave": "visionario",
+                "css": "perola-card-visionario",
+                "emoji": "🔮",
+                "titulo": "Visionário",
+                "desc": "Acertou resultados improváveis que mais ninguém conseguiu cravar.",
+                "unidade": "palpite(s) único(s)"
+            },
+            {
+                "chave": "nostradamus",
+                "css": "perola-card-nostradamus",
+                "emoji": "🌟",
+                "titulo": "Nostradamus",
+                "desc": "Quando ele fala, a FIFA escuta.",
+                "unidade": "placar(es) exato(s)"
+            },
+            # Linha 2
+            {
+                "chave": "ousado",
+                "css": "perola-card-ousado",
+                "emoji": "🦅",
+                "titulo": "Ousadia e Alegria",
+                "desc": "Apostou sozinho, sem mais ninguém com o mesmo placar. O mais ousado e criativo do grupo!",
+                "unidade": "palpite(s)"
+            },
+            {
+                "chave": "maria",
+                "css": "perola-card-maria",
+                "emoji": "🐑",
+                "titulo": "Maria vai com as outras",
+                "desc": "Mais vezes apostou o mesmo placar que a maioria do grupo. Segurança em números!",
+                "unidade": "vez(es)"
+            },
+            # Linha 3
+            {
+                "chave": "retranqueiro",
+                "css": "perola-card-retr",
+                "emoji": "🧱",
+                "titulo": "Retranqueiro",
+                "desc": "Apostou menos gols que qualquer outro participante. Amor pelo 0x0!",
+                "unidade": "gol(s)"
+            },
+            {
+                "chave": "futebol_arte",
+                "css": "perola-card-futebolarte",
+                "emoji": "🎨",
+                "titulo": "Futebol Arte",
+                "desc": "Apostou mais gols que qualquer outro participante. O negócio é sacudir a roseira!",
+                "unidade": "gol(s)"
+            },
+            # Linha 4
+            {
+                "chave": "zicado",
+                "css": "perola-card-zicado",
+                "emoji": "🤦",
+                "titulo": "Zicado",
+                "desc": "Mais vezes errou o placar por apenas um gol de diferença no total. Quase lá... mas não!",
+                "unidade": "vez(es)"
+            },
+            {
+                "chave": "pe_frio",
+                "css": "perola-card-pefrio",
+                "emoji": "🥶",
+                "titulo": "Pé Frio",
+                "desc": "Uma máquina de errar! Mais vezes não marcou ponto algum na rodada.",
+                "unidade": "rodada(s) zerada(s)"
+            },
+            # Linha 5
+            {
+                "chave": "golfinho",
+                "css": "perola-card-golfinho",
+                "emoji": "🐬",
+                "titulo": "Golfinho",
+                "desc": "Participantes que mais alternaram posições ao longo do tempo. Sobe e desce sem parar!",
+                "unidade": "posições movidas"
+            },
+            {
+                "chave": "rocha",
+                "css": "perola-card-rocha",
+                "emoji": "🪨",
+                "titulo": "Rocha",
+                "desc": "Nem sobe, nem desce. A estabilidade em pessoa.",
+                "unidade": "mudança(s) de posição"
+            },
+            # Linha 6
+            {
+                "chave": "diplomata",
+                "css": "perola-card-diplomata",
+                "emoji": "🤝",
+                "titulo": "Diplomata",
+                "desc": "Para ele, todo mundo merece um pontinho. O Rei do empate!",
+                "unidade": "empate(s) apostado(s)"
+            },
+            {
+                "chave": "arroz_feijao",
+                "css": "perola-card-arroz",
+                "emoji": "🍚",
+                "titulo": "Arroz com Feijão",
+                "desc": "Não inventa moda. Sempre o mesmo padrão.",
+                "unidade": "placar(es) distinto(s)"
+            },
+        ]
+
+        # ── Renderização em pares de colunas ────────────────────────────────────
+        for i in range(0, len(PEROLAS_CONFIG), 2):
+            cols = st.columns(2)
+            for j, cfg in enumerate(PEROLAS_CONFIG[i:i+2]):
+                dados = perolas.get(cfg["chave"], [])
+                with cols[j]:
+                    st.markdown(f"""
+<div class="perola-card {cfg['css']}">
+    <span class="perola-emoji">{cfg['emoji']}</span>
+    <div class="perola-titulo">{cfg['titulo']}</div>
+    <div class="perola-desc">{cfg['desc']}</div>
+{render_top3(dados, cfg['unidade'])}
 </div>
 """, unsafe_allow_html=True)
-            
-        # ── MARIA VAI COM AS OUTRAS ──────────────────────────────────────────────
-        with col2:
-            st.markdown(f"""
-<div class="perola-card perola-card-maria">
-    <span class="perola-emoji">🐑</span>
-    <div class="perola-titulo">Maria vai com as outras</div>
-    <div class="perola-desc">
-        Mais vezes apostou o mesmo placar que a maioria do grupo.
-        Segurança em números!
-    </div>
-{render_top3(perolas.get('maria', []), 'vez(es)')}
-</div>
-""", unsafe_allow_html=True)
-            
-        col3, col4 = st.columns(2)
-        
-        # ── RETRANQUEIRO ─────────────────────────────────────────────────────────
-        with col3:
-            st.markdown(f"""
-<div class="perola-card perola-card-retr">
-    <span class="perola-emoji">🧱</span>
-    <div class="perola-titulo">Retranqueiro</div>
-    <div class="perola-desc">
-        Apostou menos gols que qualquer outro participante.
-        Amor pelo 0x0!
-    </div>
-{render_top3(perolas.get('retranqueiro', []), 'gol(s)')}
-</div>
-""", unsafe_allow_html=True)
-            
-        # ── ZICADO ───────────────────────────────────────────────────────────────
-        with col4:
-            st.markdown(f"""
-<div class="perola-card perola-card-zicado">
-    <span class="perola-emoji">🤦</span>
-    <div class="perola-titulo">Zicado</div>
-    <div class="perola-desc">
-        Mais vezes errou o placar por apenas um gol de diferença no total.
-        Quase lá... mas não!
-    </div>
-{render_top3(perolas.get('zicado', []), 'vez(es)')}
-</div>
-""", unsafe_allow_html=True)
-            
-        col5, col6 = st.columns(2)
-        
-        # ── GOLFINHO ───────────────────────────────────────────────────────────────
-        with col5:
-            st.markdown(f"""
-<div class="perola-card perola-card-golfinho">
-    <span class="perola-emoji">🐬</span>
-    <div class="perola-titulo">Golfinho</div>
-    <div class="perola-desc">
-        Participantes que mais alternaram posições (para cima ou para baixo) ao longo do tempo.
-        Sobe e desce sem parar!
-    </div>
-{render_top3(perolas.get('golfinho', []), 'posições movidas')}
-</div>
-""", unsafe_allow_html=True)
-        
-        # Tabela de detalhes dos palpites
+
+        # ── Tabela de detalhes dos palpites ─────────────────────────────────────
         st.markdown("---")
         st.markdown("<div class='section-title'>📋 Detalhe dos Palpites Coletados</div>", unsafe_allow_html=True)
         

@@ -22,7 +22,6 @@ def calculate_global_statistics(df_historico: pd.DataFrame) -> dict:
         return stats
         
     df = df_historico.copy()
-    # Garante ordenação cronológica por data_hora
     df = df.sort_values(by="data_hora")
     
     # 1. Dias na Liderança (contagem de coletas em 1º lugar)
@@ -42,24 +41,17 @@ def calculate_global_statistics(df_historico: pd.DataFrame) -> dict:
             "valor": int(row_max_pontos["pontos"])
         }
         
-    # Cálculos que necessitam de comparação temporal entre coletas consecutivas
-    # Agrupa por participante/arroba para calcular deltas
     subidas_globais = []
     sequencias_globais = []
     consistencias = []
     
-    # Lista de participantes únicos
     participantes = df.groupby(["participante", "arroba"])
     
     for (nome, arroba), df_part in participantes:
-        # Ordena a trajetória do participante cronologicamente
         df_part_sorted = df_part.sort_values(by="data_hora").copy()
         
-        # Diferença de posições (posição anterior - posição atual)
-        # Ex: estava em 5º, foi para 2º -> 5 - 2 = +3 (subiu 3 posições)
         df_part_sorted["delta"] = df_part_sorted["posicao"].shift(1) - df_part_sorted["posicao"]
         
-        # Guarda maior subida e queda individuais
         maior_subida_part = df_part_sorted["delta"].max()
         maior_queda_part = df_part_sorted["delta"].min()
         
@@ -77,7 +69,7 @@ def calculate_global_statistics(df_historico: pd.DataFrame) -> dict:
                 "queda": int(abs(maior_queda_part))
             })
             
-        # 3. Melhor sequência de acertos (aumento nos palpites corretos acumulados)
+        # 3. Melhor sequência de acertos
         cols_acerto = ["placar_exato", "gols_vencedor", "saldo_gols", "gols_perdedor", "vencedor_certo"]
         total_acertos = pd.Series(0, index=df_part_sorted.index)
         for col in cols_acerto:
@@ -103,7 +95,6 @@ def calculate_global_statistics(df_historico: pd.DataFrame) -> dict:
         })
         
         # 4. Consistência (desvio padrão das posições)
-        # Requisito: ter participado de pelo menos 2 coletas para desvio ser válido
         if len(df_part_sorted) >= 2:
             std_dev = df_part_sorted["posicao"].std()
             if not pd.isna(std_dev):
@@ -115,7 +106,6 @@ def calculate_global_statistics(df_historico: pd.DataFrame) -> dict:
                 
     # Determina os recordistas
     if subidas_globais:
-        # Maior subida
         subidas_only = [x for x in subidas_globais if "subida" in x]
         if subidas_only:
             record_subida = max(subidas_only, key=lambda x: x["subida"])
@@ -125,7 +115,6 @@ def calculate_global_statistics(df_historico: pd.DataFrame) -> dict:
                 "valor": record_subida["subida"]
             }
             
-        # Maior queda
         quedas_only = [x for x in subidas_globais if "queda" in x]
         if quedas_only:
             record_queda = max(quedas_only, key=lambda x: x["queda"])
@@ -144,7 +133,6 @@ def calculate_global_statistics(df_historico: pd.DataFrame) -> dict:
         }
         
     if consistencias:
-        # O mais consistente é quem tem o menor desvio padrão
         record_consist = min(consistencias, key=lambda x: x["desvio"])
         stats["mais_consistente"] = {
             "participante": record_consist["participante"],
@@ -200,14 +188,12 @@ def calculate_individual_statistics(df_historico: pd.DataFrame, arroba_participa
         
     df_part = df_part.sort_values(by="data_hora")
     
-    # Posições
     posicoes = df_part["posicao"].tolist()
     ind_stats["posicao_atual"] = int(posicoes[-1])
     ind_stats["melhor_posicao"] = int(min(posicoes))
     ind_stats["pior_posicao"] = int(max(posicoes))
     ind_stats["media_posicao"] = round(float(np.mean(posicoes)), 1)
     
-    # Trajetórias
     ind_stats["evolucao_pontos"] = df_part[["data_hora", "pontos"]].to_dict(orient="records")
     ind_stats["evolucao_ranking"] = df_part[["data_hora", "posicao"]].to_dict(orient="records")
     
@@ -216,21 +202,35 @@ def calculate_individual_statistics(df_historico: pd.DataFrame, arroba_participa
 
 def calculate_perolas(df_palpites: pd.DataFrame, df_historico: pd.DataFrame = None) -> dict:
     """
-    Calcula as estatísticas divertidas "Pérolas do Bolão" a partir dos palpites individuais e histórico.
+    Calcula as estatísticas divertidas "Pérolas do Bolão".
 
-    Métricas:
-    - ousado:     Top 3 participantes que mais apostaram palpites únicos (só ele apostou aquele placar naquele jogo).
-    - maria:      Top 3 participantes que mais vezes coincidiram com o palpite majoritário do grupo.
-    - retranqueiro: Top 3 participantes que apostaram menos gols no total (soma de todos os palpites).
-    - zicado:     Top 3 participantes que mais vezes erraram por exatamente 1 gol no somatório do placar.
-    - golfinho:   Top 3 participantes que mais alternaram posições na classificação geral ao longo do tempo.
+    Métricas disponíveis:
+      visionario    — apostou sozinho e acertou o placar
+      nostradamus   — mais placares exatos acertados
+      ousado        — mais palpites únicos (só ele apostou aquele placar em um jogo)
+      maria         — mais vezes coincidiu com o palpite majoritário
+      retranqueiro  — menos gols apostados no total
+      futebol_arte  — mais gols apostados no total
+      zicado        — mais erros por 1 gol de diferença no somatório
+      pe_frio       — mais partidas sem nenhum ponto (Sem pontos)
+      golfinho      — mais alternâncias de posição no ranking
+      rocha         — menos mudanças de posição no ranking
+      diplomata     — mais empates apostados
+      arroz_feijao  — menor variedade de placares distintos
     """
     resultado = {
+        "visionario": [],
+        "nostradamus": [],
         "ousado": [],
         "maria": [],
         "retranqueiro": [],
+        "futebol_arte": [],
         "zicado": [],
-        "golfinho": []
+        "pe_frio": [],
+        "golfinho": [],
+        "rocha": [],
+        "diplomata": [],
+        "arroz_feijao": [],
     }
 
     if df_palpites is None or df_palpites.empty:
@@ -245,9 +245,43 @@ def calculate_perolas(df_palpites: pd.DataFrame, df_historico: pd.DataFrame = No
     if df.empty:
         return resultado
 
-    # ── 1. Ousado do Rolê ─────────────────────────────────────────────────
+    # Coluna auxiliar de palpite formatado
     df["palpite_str"] = df["palpite_m"].astype(str) + "x" + df["palpite_v"].astype(str)
-    
+
+    # ── 1. Visionário ────────────────────────────────────────────────────────
+    # Acertou sozinho o placar exato de uma partida (categoria == 'Placar exato' E único apostador daquele placar)
+    df_exatos = df[df["categoria"].str.strip().str.lower() == "placar exato"].copy()
+    visionario_counts = {}
+    visionario_placares = {}
+    if not df_exatos.empty:
+        for (mandante, visitante), grupo in df_exatos.groupby(["mandante", "visitante"]):
+            contagem = grupo.groupby("palpite_str")["arroba"].count()
+            unicos = contagem[contagem == 1].index.tolist()
+            for pal_str in unicos:
+                linha = grupo[grupo["palpite_str"] == pal_str].iloc[0]
+                arroba = linha["arroba"]
+                nome = linha["participante"]
+                if arroba not in visionario_counts:
+                    visionario_counts[arroba] = {"participante": nome, "arroba": arroba, "valor": 0}
+                    visionario_placares[arroba] = []
+                visionario_counts[arroba]["valor"] += 1
+                visionario_placares[arroba].append(f"{mandante} {pal_str} {visitante}")
+    if visionario_counts:
+        top = sorted(visionario_counts.values(), key=lambda x: x["valor"], reverse=True)[:3]
+        for o in top:
+            o["placares"] = visionario_placares.get(o["arroba"], [])
+        resultado["visionario"] = top
+
+    # ── 2. Nostradamus ───────────────────────────────────────────────────────
+    # Ranking exclusivo pela quantidade de placares exatos acertados
+    df_exatos_all = df[df["categoria"].str.strip().str.lower() == "placar exato"].copy()
+    if not df_exatos_all.empty:
+        nostra = df_exatos_all.groupby(["participante", "arroba"]).size().reset_index(name="valor")
+        nostra_sorted = nostra.sort_values(by="valor", ascending=False).head(3)
+        resultado["nostradamus"] = nostra_sorted[["participante", "arroba", "valor"]].to_dict(orient="records")
+
+    # ── 3. Ousadia e Alegria ─────────────────────────────────────────────────
+    # Apostou sozinho (palpite único em um jogo), independente de acertar
     ousadia_counts = {}
     ousadia_placares = {}
     for (mandante, visitante), grupo in df.groupby(["mandante", "visitante"]):
@@ -263,24 +297,22 @@ def calculate_perolas(df_palpites: pd.DataFrame, df_historico: pd.DataFrame = No
             ousadia_counts[arroba]["valor"] += 1
             label = f"{mandante} {pal_str} {visitante}"
             ousadia_placares[arroba].append(label)
-    
     if ousadia_counts:
         top_ousados = sorted(ousadia_counts.values(), key=lambda x: x["valor"], reverse=True)[:3]
         for o in top_ousados:
             o["placares"] = ousadia_placares.get(o["arroba"], [])
         resultado["ousado"] = top_ousados
 
-    # ── 2. Maria vai com as outras ────────────────────────────────────────
+    # ── 4. Maria vai com as outras ────────────────────────────────────────────
     maria_counts = {}
     maria_placares = {}
     for (mandante, visitante), grupo in df.groupby(["mandante", "visitante"]):
         contagem_palpites = grupo.groupby("palpite_str")["arroba"].count()
         max_count = contagem_palpites.max()
         if max_count < 2:
-            continue  # Não há maioria se todos apostaram diferente
+            continue
         palpites_mais_comuns = contagem_palpites[contagem_palpites == max_count].index.tolist()
         palpite_majoritario = palpites_mais_comuns[0]
-        
         marias = grupo[grupo["palpite_str"] == palpite_majoritario]
         for _, row in marias.iterrows():
             arroba = row["arroba"]
@@ -291,14 +323,13 @@ def calculate_perolas(df_palpites: pd.DataFrame, df_historico: pd.DataFrame = No
             maria_counts[arroba]["valor"] += 1
             label = f"{mandante} {palpite_majoritario} {visitante}"
             maria_placares[arroba].append(label)
-    
     if maria_counts:
         top_marias = sorted(maria_counts.values(), key=lambda x: x["valor"], reverse=True)[:3]
         for m in top_marias:
             m["placares"] = maria_placares.get(m["arroba"], [])
         resultado["maria"] = top_marias
 
-    # ── 3. Retranqueiro ──────────────────────────────────────────────────
+    # ── 5. Retranqueiro ──────────────────────────────────────────────────────
     df["total_gols_palpite"] = df["palpite_m"].fillna(0) + df["palpite_v"].fillna(0)
     gols_totais = df.groupby(["participante", "arroba"])["total_gols_palpite"].sum().reset_index()
     if not gols_totais.empty:
@@ -310,13 +341,23 @@ def calculate_perolas(df_palpites: pd.DataFrame, df_historico: pd.DataFrame = No
                 "valor": int(row["total_gols_palpite"])
             })
 
-    # ── 4. Zicado ────────────────────────────────────────────────────────
+    # ── 6. Futebol Arte ──────────────────────────────────────────────────────
+    # Oposto do Retranqueiro: quem mais gols apostou no total
+    if not gols_totais.empty:
+        gols_arte_sorted = gols_totais.sort_values(by="total_gols_palpite", ascending=False).head(3)
+        for _, row in gols_arte_sorted.iterrows():
+            resultado["futebol_arte"].append({
+                "participante": row["participante"],
+                "arroba": row["arroba"],
+                "valor": int(row["total_gols_palpite"])
+            })
+
+    # ── 7. Zicado ────────────────────────────────────────────────────────────
     df_com_real = df[(df["placar_real_m"] >= 0) & (df["placar_real_v"] >= 0)].copy()
     if not df_com_real.empty:
         df_com_real["soma_real"] = df_com_real["placar_real_m"] + df_com_real["placar_real_v"]
         df_com_real["soma_palpite"] = df_com_real["palpite_m"] + df_com_real["palpite_v"]
         df_com_real["diff_soma"] = (df_com_real["soma_real"] - df_com_real["soma_palpite"]).abs()
-        
         df_zicados = df_com_real[df_com_real["diff_soma"] == 1]
         if not df_zicados.empty:
             zicado_counts = df_zicados.groupby(["participante", "arroba"]).size().reset_index(name="valor")
@@ -328,7 +369,24 @@ def calculate_perolas(df_palpites: pd.DataFrame, df_historico: pd.DataFrame = No
                     "valor": int(row["valor"])
                 })
 
-    # ── 5. Golfinho ──────────────────────────────────────────────────────
+    # ── 8. Pé Frio ───────────────────────────────────────────────────────────
+    # Mais partidas sem nenhum ponto (categoria == 'Sem pontos' ou semelhante)
+    df_com_real2 = df[(df["placar_real_m"] >= 0) & (df["placar_real_v"] >= 0)].copy()
+    if not df_com_real2.empty:
+        df_sem_ponto = df_com_real2[
+            df_com_real2["categoria"].str.strip().str.lower().isin(["sem pontos", ""])
+        ]
+        if not df_sem_ponto.empty:
+            pe_counts = df_sem_ponto.groupby(["participante", "arroba"]).size().reset_index(name="valor")
+            pe_sorted = pe_counts.sort_values(by="valor", ascending=False).head(3)
+            for _, row in pe_sorted.iterrows():
+                resultado["pe_frio"].append({
+                    "participante": row["participante"],
+                    "arroba": row["arroba"],
+                    "valor": int(row["valor"])
+                })
+
+    # ── 9. Golfinho ──────────────────────────────────────────────────────────
     if df_historico is not None and not df_historico.empty:
         golfinhos = []
         for (nome, arroba), df_part in df_historico.groupby(["participante", "arroba"]):
@@ -343,7 +401,63 @@ def calculate_perolas(df_palpites: pd.DataFrame, df_historico: pd.DataFrame = No
                         "valor": alternancia_total
                     })
         if golfinhos:
-            top_golfinhos = sorted(golfinhos, key=lambda x: x["valor"], reverse=True)[:3]
-            resultado["golfinho"] = top_golfinhos
+            resultado["golfinho"] = sorted(golfinhos, key=lambda x: x["valor"], reverse=True)[:3]
+
+    # ── 10. Rocha ────────────────────────────────────────────────────────────
+    # Menos mudanças de posição; desempate por menor amplitude (pior - melhor posição)
+    if df_historico is not None and not df_historico.empty:
+        rochas = []
+        for (nome, arroba), df_part in df_historico.groupby(["participante", "arroba"]):
+            if len(df_part) >= 2:
+                df_part_sorted = df_part.sort_values(by="data_hora").copy()
+                df_part_sorted["delta"] = df_part_sorted["posicao"].diff().abs()
+                mudancas = int(df_part_sorted["delta"].fillna(0).sum())
+                amplitude = int(df_part_sorted["posicao"].max() - df_part_sorted["posicao"].min())
+                rochas.append({
+                    "participante": nome,
+                    "arroba": arroba,
+                    "valor": mudancas,
+                    "amplitude": amplitude
+                })
+        if rochas:
+            # Ordena por menos mudanças; desempata por menor amplitude
+            rochas_sorted = sorted(rochas, key=lambda x: (x["valor"], x["amplitude"]))[:3]
+            resultado["rocha"] = rochas_sorted
+
+    # ── 11. Diplomata ─────────────────────────────────────────────────────────
+    # Mais empates apostados (palpite_m == palpite_v)
+    df_empates = df[df["palpite_m"] == df["palpite_v"]].copy()
+    if not df_empates.empty:
+        dipl_counts = df_empates.groupby(["participante", "arroba"]).size().reset_index(name="valor")
+        dipl_sorted = dipl_counts.sort_values(by="valor", ascending=False).head(3)
+        for _, row in dipl_sorted.iterrows():
+            resultado["diplomata"].append({
+                "participante": row["participante"],
+                "arroba": row["arroba"],
+                "valor": int(row["valor"])
+            })
+
+    # ── 12. Arroz com Feijão ─────────────────────────────────────────────────
+    # Menor variedade de placares distintos; desempate por quem mais repetiu seu placar favorito
+    arroz = []
+    for (nome, arroba), grupo in df.groupby(["participante", "arroba"]):
+        contagem_placares = grupo["palpite_str"].value_counts()
+        qtd_distintos = int(contagem_placares.nunique() if not contagem_placares.empty else 0)
+        # Considera qtd_distintos = número de placares únicos apostados
+        qtd_distintos = int(grupo["palpite_str"].nunique())
+        placar_fav = contagem_placares.index[0] if not contagem_placares.empty else "N/A"
+        repeticoes = int(contagem_placares.iloc[0]) if not contagem_placares.empty else 0
+        arroz.append({
+            "participante": nome,
+            "arroba": arroba,
+            "valor": qtd_distintos,
+            "repeticoes": repeticoes,
+            "placar_fav": placar_fav,
+            "info_extra": f"Placar favorito: {placar_fav} ({repeticoes}x)"
+        })
+    if arroz:
+        # Ordena por menos placares distintos; desempata por mais repetições do favorito
+        arroz_sorted = sorted(arroz, key=lambda x: (x["valor"], -x["repeticoes"]))[:3]
+        resultado["arroz_feijao"] = arroz_sorted
 
     return resultado
