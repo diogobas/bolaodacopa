@@ -1,8 +1,24 @@
 import os
 import sys
 import subprocess
-import streamlit as st
 import shutil
+
+import streamlit as st
+
+st.set_page_config(page_title="🏆 Bolão é Nóis na Copa", page_icon="⚽", layout="wide")
+
+MISSING_DEPENDENCIES = []
+try:
+    import pandas as pd
+except ModuleNotFoundError:
+    pd = None
+    MISSING_DEPENDENCIES.append("pandas")
+
+try:
+    import plotly.express as px
+except ModuleNotFoundError:
+    px = None
+    MISSING_DEPENDENCIES.append("plotly")
 
 @st.cache_resource
 def instalar_navegadores_playwright():
@@ -12,11 +28,8 @@ def instalar_navegadores_playwright():
     O uso do cache garante que este processo massivo ocorra apenas uma vez 
     durante o ciclo de vida do contêiner.
     """
-    # Define um comando otimizado para baixar APENAS o Chromium, 
-    # economizando espaço e tempo de inicialização.
     comando = ["playwright", "install", "chromium"]
 
-    # Verifica se o binário/CLI do playwright está disponível no PATH
     if shutil.which("playwright") is None:
         st.warning("Playwright CLI não encontrado: instalação dos navegadores foi ignorada.")
         return False
@@ -32,13 +45,18 @@ def instalar_navegadores_playwright():
         st.warning("Comando 'playwright' não foi encontrado no sistema; pulei a instalação.")
         return False
 
+if MISSING_DEPENDENCIES:
+    st.error(
+        "Dependências faltando no ambiente: " + ", ".join(MISSING_DEPENDENCIES) + "."
+    )
+    st.info("Execute `pip install -r requirements.txt` no ambiente de deploy e reinicie a aplicação.")
+    st.stop()
+
 # Inicializa o injetor antes do render do dashboard
 try:
     instalar_navegadores_playwright()
 except Exception as e:
     st.warning(f"Falha ao tentar instalar navegadores do Playwright: {e}")
-
-import os
 
 # 1. Captura o caminho absoluto do diretório onde main.py está localizado (pasta 'app')
 caminho_atual = os.path.dirname(os.path.abspath(__file__))
@@ -52,24 +70,13 @@ if caminho_raiz not in sys.path:
 
 # 4. Agora as importações locais funcionarão normalmente
 from config import settings
-import streamlit as st
-
-import sys
 from pathlib import Path
+from datetime import datetime
+from app.utils import statistics
+from app import scheduler
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR))
-
-import streamlit as st
-import pandas as pd
-import plotly.express as px
-from pathlib import Path
-from datetime import datetime
-from config import settings
-# Import de `scraper` feito tardiamente onde necessário para evitar
-# ModuleNotFoundError se `playwright` não estiver instalado no ambiente.
-from app.utils import statistics
-from app import scheduler
 
 @st.cache_resource
 def iniciar_agendador():
@@ -81,9 +88,6 @@ def iniciar_agendador():
 
 # Inicia o agendador de sincronização automática
 iniciar_agendador()
-
-# Configuração da página Streamlit (layout wide e título premium)
-st.set_page_config(page_title="🏆 Bolão é Nóis na Copa", page_icon="⚽", layout="wide")
 
 # Estilização CSS Avançada (Responsiva, Limpa e Corrigida)
 st.markdown("""
