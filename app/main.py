@@ -67,6 +67,7 @@ from pathlib import Path
 from app import scheduler
 from app.utils.data_loader import load_data
 from app.views import administracao, evolucao_individual, estatisticas, perolas, ranking, tabelas
+from app import live_listener
 
 @st.cache_resource
 def iniciar_agendador():
@@ -77,6 +78,15 @@ def iniciar_agendador():
     return scheduler.start_scheduler()
 
 iniciar_agendador()
+
+
+@st.cache_resource
+def iniciar_live_listener():
+    """Inicia o listener que atualiza `live_matches.json` em background."""
+    return live_listener.start_live_listener()
+
+
+iniciar_live_listener()
 
 st.markdown("""
 <style>
@@ -245,7 +255,7 @@ st.markdown("""
 
 # Carrega os dados
 
-df_membros, df_historico, df_palpites = load_data()
+df_membros, df_historico, df_palpites, live_matches = load_data()
 missing_dacopa_env = settings.missing_dacopa_env_vars()
 
 # Configuração da barra lateral (Sidebar)
@@ -271,7 +281,7 @@ if df_historico.empty:
     st.sidebar.warning("Banco de dados local vazio. Faça uma coleta no Painel Admin.")
 
 if aba_selecionada == "📊 Ranking Atual":
-    ranking.render(df_historico)
+    ranking.render(df_historico, df_palpites, live_matches)
 elif aba_selecionada == "📋 Tabelas":
     tabelas.render(df_historico)
 elif aba_selecionada == "👤 Evolução Individual":

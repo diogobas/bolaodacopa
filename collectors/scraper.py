@@ -13,6 +13,7 @@ A chamada é feita via page.evaluate() para reutilizar os cookies de sessão
 do Playwright, que já realizou o login em app.dacopa.com.
 """
 
+import json
 import pandas as pd
 from datetime import datetime
 from pathlib import Path
@@ -164,53 +165,120 @@ def save_ranking_snapshot(ranking: list[dict]) -> bool:
 # Acesso à API REST do DaCopa via contexto autenticado
 # ──────────────────────────────────────────────────────────────
 
+def _extract_api_authorization_token(page: Page) -> str | None:
+    """Captura o header Authorization usado pelo app para chamadas à API."""
+    auth_token = None
+
+    def capture_request(request):
+        nonlocal auth_token
+        url = request.url
+        if 'api.dacopa.com' not in url:
+            return
+
+        authorization = request.headers.get('authorization') or request.headers.get('Authorization')
+        if authorization and authorization.strip().lower().startswith('bearer '):
+            auth_token = authorization.strip()
+
+    page.on('request', capture_request)
+    try:
+        page.wait_for_timeout(1200)
+    finally:
+        try:
+            page.off('request', capture_request)
+        except Exception:
+            pass
+
+    return auth_token
+
+
+def _fetch_api_json(page: Page, url: str, headers: dict) -> dict:
+    return page.evaluate(
+        "async ({ url, headers }) => {"
+        "  const resp = await fetch(url, {"
+        "    method: 'GET',"
+        "    credentials: 'include',"
+        "    headers: headers"
+        "  });"
+        "  if (!resp.ok) {"
+        "    throw new Error('API retornou HTTP ' + resp.status + ' - ' + await resp.text());"
+        "  }"
+        "  return await resp.json();"
+        "}",
+        {"url": url, "headers": headers},
+    )
+
+
 def fetch_leaderboard_api(page: Page) -> dict:
     """
-    Chama a API REST do DaCopa usando o contexto de sessão já autenticado
-    do Playwright (cookies compartilhados entre app.dacopa.com e api.dacopa.com).
+    Chama as APIs necessárias do DaCopa usando o contexto de sessão já autenticado
+    do Playwright.
 
-    URL: GET https://api.dacopa.com/groups/{group_id}/leaderboard
-
-    Retorna dict com as chaves:
-      - standings (list): classificação de cada participante
-      - finishedMatches (list): partidas já encerradas
-
-    Cada item de standings contém:
-      rank, totalPoints, exactScoreCount, winnersGoalsCount,
-      goalDifferenceCount, losersGoalsCount, correctWinnerCount,
-      drawGuaranteeCount, predictionsCount,
-      user.displayName, user.handle
+    Retorna um dict contendo o ranking do grupo e as partidas ao vivo.
     """
-    api_url = f"{DACOPA_API_BASE}/groups/{settings.DACOPA_GROUP_ID}/leaderboard"
+    dashboard_url = f"{DACOPA_API_BASE}/dashboard"
+    leaderboard_url = f"{DACOPA_API_BASE}/groups/{settings.DACOPA_GROUP_ID}/leaderboard"
 
-    # Primeiro navega para o app para garantir que os cookies estão ativos
     app_url = f"{settings.DACOPA_BASE_URL}/groups/{settings.DACOPA_GROUP_ID}/leaderboard"
     logger.info(f"Navegando para {app_url} para validar sessão...")
-    page.goto(app_url, timeout=30000)
-    page.wait_for_load_state("networkidle")
-    page.wait_for_timeout(1000)
 
-    logger.info(f"Chamando API: GET {api_url}")
+    auth_token = None
+    def capture_request(request):
+        nonlocal auth_token
+        url = request.url
+        if 'api.dacopa.com' not in url:
+            return
 
-    # Usa fetch() via JavaScript dentro do contexto autenticado do navegador,
-    # herdando automaticamente os cookies de sessão (credentials: 'include').
-    result = page.evaluate(f"""async () => {{
-        const resp = await fetch('{api_url}', {{
-            method: 'GET',
-            credentials: 'include',
-            headers: {{
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            }}
-        }});
-        if (!resp.ok) {{
-            throw new Error('API retornou HTTP ' + resp.status);
-        }}
-        return await resp.json();
-    }}""")
+        authorization = request.headers.get('authorization') or request.headers.get('Authorization')
+        if authorization and authorization.strip().lower().startswith('bearer '):
+            auth_token = authorization.strip()
 
-    standings_count = len(result.get("standings", []))
-    matches_count   = len(result.get("finishedMatches", []))
+    page.on('request', capture_request)
+    try:
+        page.goto(app_url, timeout=30000)
+        page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(1000)
+    finally:
+        try:
+            page.off('request', capture_request)
+        except Exception:
+            pass
+
+    if auth_token:
+        logger.info("Token de autorização extraído do navegador para chamadas API.")
+    else:
+        logger.warning("Não foi possível extrair token de autorização. Tentando chamada API sem Authorization header.")
+
+    headers = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+    }
+    if auth_token:
+        headers['Authorization'] = auth_token
+
+    logger.info(f"Chamando API de grupo: GET {leaderboard_url}")
+    leaderboard_data = _fetch_api_json(page, leaderboard_url, headers)
+
+    logger.info(f"Chamando API do dashboard: GET {dashboard_url}")
+    dashboard_data = _fetch_api_json(page, dashboard_url, headers)
+
+    # Se a API do dashboard indicar que NÃO há partidas ao vivo,
+    # forçamos `liveMatches` para uma lista vazia. Alguns endpoints
+    # podem retornar dados antigos mesmo quando não há jogos ao vivo.
+    has_live = dashboard_data.get('hasLiveMatches', False)
+    live_matches = dashboard_data.get('liveMatches', []) if has_live else []
+    if not has_live and dashboard_data.get('liveMatches'):
+        logger.info("API retornou 'liveMatches' porém 'hasLiveMatches' está False — ignorando resultados.")
+
+    result = {**leaderboard_data}
+    result['liveMatches'] = live_matches
+    result['finishedMatches'] = dashboard_data.get('finishedMatches', [])
+    result['upcomingMatches'] = dashboard_data.get('upcomingMatches', [])
+    result['banners'] = dashboard_data.get('banners', [])
+    result['groupRankings'] = dashboard_data.get('groupRankings', [])
+    result['hasLiveMatches'] = has_live
+
+    standings_count = len(result.get('standings', []))
+    matches_count = len(result.get('finishedMatches', []))
     logger.info(f"API retornou {standings_count} participantes e {matches_count} partidas finalizadas.")
     return result
 
@@ -443,6 +511,23 @@ def save_palpites_snapshot(palpites: list[dict], coleta_id: str) -> bool:
         logger.error(f"Erro ao salvar palpites.xlsx: {e}")
         return False
 
+
+def save_live_matches(live_matches: list[dict]) -> bool:
+    """
+    Persiste a lista de partidas ao vivo em um arquivo JSON.
+    """
+    try:
+        settings.STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+        with open(settings.LIVE_MATCHES_FILE, "w", encoding="utf-8") as f:
+            json.dump(live_matches or [], f, ensure_ascii=False, indent=2)
+
+        logger.info(f"liveMatches salvos em: {settings.LIVE_MATCHES_FILE}")
+        return True
+    except Exception as e:
+        logger.error(f"Erro ao salvar live_matches.json: {e}")
+        return False
+
+
 def rebuild_historical_snapshots(api_data: dict, palpites_file: Path):
     """
     Recalcula o ranking dia a dia com base nos palpites salvos e nas partidas finalizadas da API,
@@ -594,11 +679,14 @@ def run_coleta_completa() -> bool:
             # 3. Persiste membros
             update_membros_list(membros)
 
-            # 4. Persiste snapshot de ranking
+            # 4. Persiste liveMatches
+            save_live_matches(api_data.get("liveMatches", []))
+
+            # 5. Persiste snapshot de ranking
             coleta_id = datetime.now().strftime("%Y%m%d%H%M%S")
             save_ranking_snapshot(ranking)
 
-            # 5. Coleta palpites individuais de cada membro
+            # 6. Coleta palpites individuais de cada membro
             logger.info("─" * 40)
             logger.info("Coletando palpites individuais por membro...")
             todos_palpites = []
