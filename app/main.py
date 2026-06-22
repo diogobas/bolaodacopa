@@ -5,7 +5,7 @@ import shutil
 
 import streamlit as st
 
-st.set_page_config(page_title="🏆 Bolão é Nóis na Copa", page_icon="⚽", layout="wide")
+st.set_page_config(page_title="🏆 Bolão - Copa do Mundo", page_icon="⚽", layout="wide")
 
 MISSING_DEPENDENCIES = []
 try:
