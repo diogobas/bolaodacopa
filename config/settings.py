@@ -36,6 +36,7 @@ ASSETS_DIR = BASE_DIR / "assets"
 MEMBROS_EXCEL = STORAGE_DIR / "membros.xlsx"
 HISTORICO_EXCEL = STORAGE_DIR / "historico.xlsx"
 PALPITES_EXCEL = STORAGE_DIR / "palpites.xlsx"
+LIVE_MATCHES_FILE = STORAGE_DIR / "live_matches.json"
 AUTH_STATE_FILE = STORAGE_DIR / "auth_state.json"
 SELECTORS_JSON = CONFIG_DIR / "selectors.json"
 LOG_COLLECTOR_FILE = LOGS_DIR / "collector.log"
@@ -57,3 +58,18 @@ def get_selectors() -> dict:
     return {}
 
 SELECTORS = get_selectors()
+
+
+def missing_dacopa_env_vars() -> list[str]:
+    """Retorna as variáveis obrigatórias do DaCopa que ainda não foram configuradas."""
+    required = {
+        "DACOPA_GROUP_ID": DACOPA_GROUP_ID,
+        "DACOPA_EMAIL": DACOPA_EMAIL,
+        "DACOPA_PASSWORD": DACOPA_PASSWORD,
+    }
+    return [name for name, value in required.items() if not str(value).strip()]
+
+
+def has_dacopa_config() -> bool:
+    """Indica se a configuração mínima para sincronizar com o DaCopa está pronta."""
+    return not missing_dacopa_env_vars()
