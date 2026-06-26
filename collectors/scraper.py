@@ -914,8 +914,9 @@ def run_coleta_completa() -> bool:
             collect_palpites_for_ranking(page, ranking, coleta_id)
 
             # 6. Reconstrução do histórico retroativo dia-a-dia
-            logger.info("Reconstruindo histórico retroativo dia a dia...")
-            rebuild_historical_snapshots(api_data, settings.PALPITES_EXCEL)
+            # DESABILITADO: Esta função reescreve o arquivo inteiro, descartando snapshots reais
+            # logger.info("Reconstruindo histórico retroativo dia a dia...")
+            # rebuild_historical_snapshots(api_data, settings.PALPITES_EXCEL)
 
             context.close()
             logger.info("─" * 60)
